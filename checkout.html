@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AURA | Paiement Sécurisé</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .checkout-container { max-width: 1200px; margin: 120px auto 100px; padding: 0 5%; display: grid; grid-template-columns: 1.5fr 1fr; gap: 60px; }
+        .checkout-form h2, .checkout-summary h2 { margin-bottom: 30px; font-family: var(--font-heading); font-size: 2rem;}
+        .form-group { margin-bottom: 25px; }
+        .form-group label { display: block; margin-bottom: 10px; color: var(--color-text-secondary); font-size: 0.9rem; letter-spacing: 1px; text-transform: uppercase;}
+        .form-control { width: 100%; padding: 15px 20px; background: var(--color-bg-tertiary); border: 1px solid var(--color-border); color: var(--color-text-primary); border-radius: var(--radius-sm); font-family: var(--font-body); transition: border-color var(--transition-fast);}
+        .form-control:focus { outline: none; border-color: var(--color-accent); }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .checkout-summary { background: var(--color-bg-secondary); padding: 40px; border-radius: var(--radius-md); border: 1px solid var(--color-border); height: fit-content; position: sticky; top: 120px;}
+        .summary-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--color-border); }
+        .summary-item-info { display: flex; align-items: center; gap: 15px; }
+        .summary-item-img { width: 60px; height: 60px; object-fit: cover; border-radius: var(--radius-sm); }
+        .summary-total { display: flex; justify-content: space-between; font-size: 1.5rem; font-weight: 600; margin-top: 30px; color: var(--color-accent); }
+        @media (max-width: 900px) { .checkout-container { grid-template-columns: 1fr; } .checkout-summary { position: relative; top: 0; order: -1;} }
+    </style>
+</head>
+<body>
+    <nav class="navbar scrolled" id="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="logo">AURA</a>
+            <ul class="nav-links">
+                <li><a href="index.html">Accueil</a></li>
+                <li><a href="shop.html">Collection</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="checkout-container">
+        <div class="checkout-form">
+            <h2>Détails de facturation</h2>
+            <form id="paymentForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="firstName">Prénom</label>
+                        <input type="text" id="firstName" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="lastName">Nom</label>
+                        <input type="text" id="lastName" class="form-control" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="address">Adresse de livraison</label>
+                    <input type="text" id="address" class="form-control" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="zip">Code postal</label>
+                        <input type="text" id="zip" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="city">Ville</label>
+                        <input type="text" id="city" class="form-control" required>
+                    </div>
+                </div>
+                
+                <h2 style="margin-top: 50px;">Paiement Sécurisé</h2>
+                <div class="form-group">
+                    <label for="card">Numéro de carte</label>
+                    <input type="text" id="card" class="form-control" placeholder="0000 0000 0000 0000" maxlength="19" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="expiry">Date d'expiration</label>
+                        <input type="text" id="expiry" class="form-control" placeholder="MM/AA" maxlength="5" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="cvc">CVC</label>
+                        <input type="text" id="cvc" class="form-control" placeholder="123" maxlength="3" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block" style="margin-top: 30px; font-size: 1.1rem; padding: 20px;">Confirmer la commande</button>
+            </form>
+        </div>
+        
+        <div class="checkout-summary">
+            <h2>Votre Commande</h2>
+            <div id="checkoutItems">
+                <!-- Injected via JS -->
+            </div>
+            <div class="summary-total">
+                <span>Total</span>
+                <span id="checkoutTotal">0 €</span>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="footer-bottom" style="border-top: none; padding-top: 0;">
+            <p>&copy; 2026 AURA Eyewear. Paiement 100% sécurisé.</p>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const checkoutItems = document.getElementById('checkoutItems');
+            const checkoutTotal = document.getElementById('checkoutTotal');
+            let total = 0;
+            
+            if (cart.length === 0) {
+                checkoutItems.innerHTML = '<p style="color: var(--color-text-secondary);">Votre panier est vide.</p>';
+            } else {
+                cart.forEach(item => {
+                    total += item.price;
+                    checkoutItems.innerHTML += `
+                        <div class="summary-item">
+                            <div class="summary-item-info">
+                                <img src="${item.image}" alt="${item.name}" class="summary-item-img">
+                                <span>${item.name}</span>
+                            </div>
+                            <span>${item.price} €</span>
+                        </div>
+                    `;
+                });
+            }
+            checkoutTotal.textContent = `${total} €`;
+
+            document.getElementById('paymentForm').addEventListener('submit', (e) => {
+                e.preventDefault();
+                if(cart.length === 0) {
+                    alert("Votre panier est vide. Veuillez ajouter des articles avant de payer.");
+                    return;
+                }
+                alert("Paiement simulé avec succès ! Merci de votre commande. Vous allez être redirigé vers l'accueil.");
+                cart.length = 0; // clear cart context in this view
+                window.location.href = 'index.html';
+            });
+        });
+    </script>
+</body>
+</html>

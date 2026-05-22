@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AURA | Lunettes de Soleil Premium</title>
+    <meta name="description" content="Découvrez notre collection exclusive de lunettes de soleil de marque. Élégance luxueuse et design audacieux.">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <!-- Main CSS -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="#" class="logo">AURA</a>
+            <ul class="nav-links">
+                <li><a href="#hero">Accueil</a></li>
+                <li><a href="#products">Collection</a></li>
+                <li><a href="#about">Maison Aura</a></li>
+            </ul>
+            <div class="nav-actions">
+                <button class="cart-btn" id="cartBtn" aria-label="Ouvrir le panier">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <path d="M16 10a4 4 0 0 1-8 0"></path>
+                    </svg>
+                    <span class="cart-count" id="cartCount">0</span>
+                </button>
+            </div>
+            <!-- Hamburger menu for mobile -->
+            <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Menu principal">
+                <span></span><span></span><span></span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <header class="hero" id="hero">
+        <div class="hero-bg" id="heroBg"></div>
+        <div class="hero-overlay"></div>
+        <div class="hero-content">
+            <p class="hero-subtitle">NOUVELLE COLLECTION ÉTÉ</p>
+            <h1 class="hero-title">Redéfinissez l'Élégance.</h1>
+            <p class="hero-description">Des lunettes de soleil premium pour ceux qui refusent les compromis. Plongez dans notre univers haute couture.</p>
+            <a href="#products" class="btn btn-primary">Découvrir la collection</a>
+        </div>
+    </header>
+
+    <!-- Product Grid Section -->
+    <section class="products" id="products">
+        <div class="section-header">
+            <h2 class="section-title">Pièces Maîtresses</h2>
+            <p class="section-subtitle">Sélection de nos montures les plus iconiques</p>
+        </div>
+        <div class="product-grid" id="productGrid">
+            <!-- Products will be injected here via JS -->
+        </div>
+    </section>
+
+    <!-- Shopping Cart Modal (Drawer) -->
+    <div class="cart-overlay" id="cartOverlay">
+        <aside class="cart-drawer" id="cartDrawer">
+            <div class="cart-header">
+                <h2>Votre Panier</h2>
+                <button class="close-cart" id="closeCartBtn">&times;</button>
+            </div>
+            <div class="cart-items" id="cartItems">
+                <!-- Cart items will be injected here via JS -->
+            </div>
+            <div class="cart-footer">
+                <div class="cart-total">
+                    <span>Total</span>
+                    <span id="cartTotalPrice">0 €</span>
+                </div>
+                <button class="btn btn-primary btn-block">Procéder au paiement</button>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer" id="about">
+        <div class="footer-container">
+            <div class="footer-brand">
+                <h3 class="logo">AURA</h3>
+                <p>L'excellence visuelle, le design intemporel. Créateur de montures d'exception depuis 2026.</p>
+            </div>
+            <div class="footer-links-group">
+                <h4>Boutique</h4>
+                <ul>
+                    <li><a href="shop.html">Nouvelle Collection</a></li>
+                    <li><a href="shop.html?category=homme">Montures Homme</a></li>
+                    <li><a href="shop.html?category=femme">Montures Femme</a></li>
+                    <li><a href="shop.html?category=accessoires">Accessoires</a></li>
+                </ul>
+            </div>
+            <div class="footer-links-group">
+                <h4>Service Client</h4>
+                <ul>
+                    <li><a href="info.html">Livraison & Retours</a></li>
+                    <li><a href="info.html">Entretien</a></li>
+                    <li><a href="contact.html">Contactez-nous</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2026 AURA Eyewear. Tous droits réservés.</p>
+        </div>
+    </footer>
+
+    <!-- Main JS -->
+    <script src="script.js"></script>
+</body>
+</html>
