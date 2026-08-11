@@ -7,7 +7,7 @@ const products = [
         name: "L'Ombre",
         brand: "AURA",
         price: 350,
-        // Placeholder images down to a single product image we generated
+        category: "homme",
         image: "img/product-1.png"
     },
     {
@@ -15,6 +15,7 @@ const products = [
         name: "Éclipse",
         brand: "AURA",
         price: 420,
+        category: "femme",
         image: "img/product-2.png"
     },
     {
@@ -22,6 +23,7 @@ const products = [
         name: "Soleil Noir",
         brand: "AURA",
         price: 380,
+        category: "homme",
         image: "img/product-3.png"
     },
     {
@@ -29,6 +31,7 @@ const products = [
         name: "Horizon",
         brand: "AURA",
         price: 290,
+        category: "femme",
         image: "img/product-4.png"
     },
     {
@@ -36,14 +39,16 @@ const products = [
         name: "Mirage",
         brand: "AURA",
         price: 450,
-        image: "img/product-1.png"
+        category: "homme",
+        image: "img/product-6.png"
     },
     {
         id: 6,
         name: "Zénith",
         brand: "AURA",
         price: 520,
-        image: "img/product-1.png"
+        category: "femme",
+        image: "img/product-5.png"
     }
 ];
 
@@ -70,9 +75,44 @@ const navLinksContainer = document.querySelector('.nav-links');
 // Initialization
 // =========================================================================
 document.addEventListener('DOMContentLoaded', () => {
-    if (productGrid) renderProducts();
+    if (productGrid) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const initialCategory = urlParams.get('category') || 'all';
+        renderProducts(initialCategory);
+        setupFilterButtons(initialCategory);
+    }
     setupEventListeners();
 });
+
+// =========================================================================
+// Category Filters
+// =========================================================================
+const categoryLabels = {
+    'all': 'Tout Voir',
+    'homme': 'Homme',
+    'femme': 'Femme',
+    'accessoires': 'Accessoires'
+};
+
+function setupFilterButtons(initialCategory) {
+    const filterButtons = document.querySelectorAll('.filter-btn');
+    if (!filterButtons.length) return;
+
+    filterButtons.forEach(btn => {
+        const category = Object.keys(categoryLabels).find(
+            key => categoryLabels[key] === btn.textContent.trim()
+        ) || 'all';
+        btn.dataset.category = category;
+
+        btn.classList.toggle('active', category === initialCategory);
+
+        btn.addEventListener('click', () => {
+            filterButtons.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            renderProducts(category);
+        });
+    });
+}
 
 // =========================================================================
 // Event Listeners
@@ -124,10 +164,19 @@ function setupEventListeners() {
 // =========================================================================
 // Product Rendering
 // =========================================================================
-function renderProducts() {
+function renderProducts(category = 'all') {
     productGrid.innerHTML = '';
-    
-    products.forEach(product => {
+
+    const visibleProducts = category === 'all'
+        ? products
+        : products.filter(product => product.category === category);
+
+    if (visibleProducts.length === 0) {
+        productGrid.innerHTML = '<p class="empty-state">Aucune monture dans cette catégorie pour le moment.</p>';
+        return;
+    }
+
+    visibleProducts.forEach(product => {
         const card = document.createElement('div');
         card.className = 'product-card';
         card.innerHTML = `
