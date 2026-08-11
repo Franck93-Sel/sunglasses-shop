@@ -55,7 +55,11 @@ const products = [
 // =========================================================================
 // State: Cart
 // =========================================================================
-let cart = [];
+let cart = JSON.parse(localStorage.getItem('auraCart') || '[]');
+
+function saveCart() {
+    localStorage.setItem('auraCart', JSON.stringify(cart));
+}
 
 // =========================================================================
 // DOM Elements
@@ -215,6 +219,7 @@ window.addToCart = function(productId) {
     if (!product) return;
 
     cart.push(product);
+    saveCart();
     updateCartUI();
     
     // Open cart to show user they added it (if not already opened)
@@ -225,6 +230,7 @@ window.addToCart = function(productId) {
 
 window.removeFromCart = function(index) {
     cart.splice(index, 1);
+    saveCart();
     updateCartUI();
 }
 

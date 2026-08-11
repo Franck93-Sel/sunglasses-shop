@@ -135,7 +135,8 @@
                     return;
                 }
                 alert("Paiement simulé avec succès ! Merci de votre commande. Vous allez être redirigé vers l'accueil.");
-                cart.length = 0; // clear cart context in this view
+                cart.length = 0;
+                saveCart();
                 window.location.href = 'index.html';
             });
         });
