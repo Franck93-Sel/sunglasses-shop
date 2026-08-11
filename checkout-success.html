@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AURA | Commande Confirmée</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .success-container { max-width: 620px; margin: 180px auto 140px; padding: 0 5%; text-align: center; }
+        .success-icon { width: 64px; height: 64px; margin: 0 auto 30px; border: 1px solid var(--color-accent); border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+        .success-container h1 { font-size: 2.4rem; margin-bottom: 20px; }
+        .success-container p { color: var(--color-text-secondary); margin-bottom: 10px; line-height: 1.7; }
+    </style>
+</head>
+<body>
+    <nav class="navbar scrolled" id="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="logo">AURA</a>
+            <ul class="nav-links">
+                <li><a href="index.html">Accueil</a></li>
+                <li><a href="shop.html">Collection</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="success-container">
+        <div class="success-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#cfa15f" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
+        </div>
+        <h1>Paiement confirmé</h1>
+        <p>Merci pour votre commande. Un email de confirmation vous a été envoyé.</p>
+        <p>Votre monture AURA sera préparée avec le plus grand soin.</p>
+        <a href="index.html" class="btn btn-outline" style="margin-top: 30px; display: inline-block;">Retour à l'accueil</a>
+    </main>
+
+    <footer class="footer">
+        <div class="footer-bottom" style="border-top: none; padding-top: 0;">
+            <p>&copy; 2026 AURA Eyewear. Paiement 100% sécurisé.</p>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+    <script>
+        cart.length = 0;
+        saveCart();
+    </script>
+</body>
+</html>

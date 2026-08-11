@@ -66,22 +66,9 @@
                     </div>
                 </div>
                 
-                <h2 style="margin-top: 50px;">Paiement Sécurisé</h2>
-                <div class="form-group">
-                    <label for="card">Numéro de carte</label>
-                    <input type="text" id="card" class="form-control" placeholder="0000 0000 0000 0000" maxlength="19" required>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="expiry">Date d'expiration</label>
-                        <input type="text" id="expiry" class="form-control" placeholder="MM/AA" maxlength="5" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="cvc">CVC</label>
-                        <input type="text" id="cvc" class="form-control" placeholder="123" maxlength="3" required>
-                    </div>
-                </div>
-                <button type="submit" class="btn btn-primary btn-block" style="margin-top: 30px; font-size: 1.1rem; padding: 20px;">Confirmer la commande</button>
+                <p id="paymentError" style="display:none; color:#e07856; margin-top: 40px; margin-bottom: -10px;"></p>
+                <button type="submit" id="payBtn" class="btn btn-primary btn-block" style="margin-top: 50px; font-size: 1.1rem; padding: 20px;">Payer avec Stripe</button>
+                <p style="color: var(--color-text-secondary); font-size: 0.85rem; margin-top: 15px; text-align: center;">Vous serez redirigé vers la page de paiement sécurisée Stripe.</p>
             </form>
         </div>
         
@@ -128,16 +115,45 @@
             }
             checkoutTotal.textContent = `${total} €`;
 
-            document.getElementById('paymentForm').addEventListener('submit', (e) => {
+            const N8N_CHECKOUT_WEBHOOK = 'https://n8n.212.227.12.49.nip.io/webhook/aura-checkout';
+            const payBtn = document.getElementById('payBtn');
+            const paymentError = document.getElementById('paymentError');
+
+            document.getElementById('paymentForm').addEventListener('submit', async (e) => {
                 e.preventDefault();
-                if(cart.length === 0) {
+                if (cart.length === 0) {
                     alert("Votre panier est vide. Veuillez ajouter des articles avant de payer.");
                     return;
                 }
-                alert("Paiement simulé avec succès ! Merci de votre commande. Vous allez être redirigé vers l'accueil.");
-                cart.length = 0;
-                saveCart();
-                window.location.href = 'index.html';
+
+                paymentError.style.display = 'none';
+                payBtn.disabled = true;
+                payBtn.textContent = 'Redirection vers Stripe…';
+
+                try {
+                    const response = await fetch(N8N_CHECKOUT_WEBHOOK, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            items: cart.map(item => ({ name: item.name, price: item.price, quantity: 1 })),
+                            email: document.getElementById('email').value,
+                            successUrl: window.location.origin + window.location.pathname.replace('checkout.html', 'checkout-success.html'),
+                            cancelUrl: window.location.href
+                        })
+                    });
+
+                    if (!response.ok) throw new Error('Réponse invalide du serveur de paiement.');
+
+                    const data = await response.json();
+                    if (!data.checkoutUrl) throw new Error('URL de paiement manquante.');
+
+                    window.location.href = data.checkoutUrl;
+                } catch (err) {
+                    paymentError.textContent = "Une erreur est survenue lors de la préparation du paiement. Veuillez réessayer.";
+                    paymentError.style.display = 'block';
+                    payBtn.disabled = false;
+                    payBtn.textContent = 'Payer avec Stripe';
+                }
             });
         });
     </script>
