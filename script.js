@@ -86,6 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setupFilterButtons(initialCategory);
     }
     setupEventListeners();
+    setupCookieBanner();
 });
 
 // =========================================================================
@@ -276,5 +277,45 @@ function updateCartUI() {
         checkoutBtn.onclick = () => {
             window.location.href = 'checkout.html';
         };
+    }
+}
+
+// =========================================================================
+// Cookie Consent Banner
+// =========================================================================
+function setupCookieBanner() {
+    const banner = document.createElement('div');
+    banner.className = 'cookie-banner';
+    banner.id = 'cookieBanner';
+    banner.innerHTML = `
+        <div class="cookie-banner-inner">
+            <p class="cookie-banner-text">
+                <strong>Nous utilisons des cookies.</strong> AURA utilise uniquement des cookies essentiels au fonctionnement du site (panier, préférences). Consultez notre <a href="confidentialite.html">politique de confidentialité</a> pour en savoir plus.
+            </p>
+            <div class="cookie-banner-actions">
+                <button type="button" class="btn cookie-btn-refuse" id="cookieRefuseBtn">Refuser</button>
+                <button type="button" class="btn btn-primary" id="cookieAcceptBtn">Accepter</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(banner);
+
+    const hideBanner = () => banner.classList.remove('is-visible');
+
+    document.getElementById('cookieAcceptBtn').addEventListener('click', () => {
+        localStorage.setItem('auraCookieConsent', 'accepted');
+        hideBanner();
+    });
+
+    document.getElementById('cookieRefuseBtn').addEventListener('click', () => {
+        localStorage.setItem('auraCookieConsent', 'refused');
+        hideBanner();
+    });
+
+    window.showCookieBanner = () => banner.classList.add('is-visible');
+
+    if (!localStorage.getItem('auraCookieConsent')) {
+        // Small delay so the banner slides in after the page has settled.
+        setTimeout(() => banner.classList.add('is-visible'), 600);
     }
 }

@@ -3,17 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AURA | Informations Pratiques</title>
+    <title>AURA | Mentions Légales</title>
+    <meta name="description" content="Mentions légales du site AURA — site de démonstration à but pédagogique.">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
     <style>
         .info-container { max-width: 800px; margin: 150px auto 100px; padding: 0 5%; }
         .info-container h1 { font-size: 3rem; margin-bottom: 20px; text-align: center; }
+        .info-disclaimer { background: var(--color-bg-tertiary); border: 1px solid var(--color-accent); border-radius: var(--radius-md); padding: 20px 25px; margin-bottom: 40px; color: var(--color-text-secondary); font-size: 0.95rem; }
+        .info-disclaimer strong { color: var(--color-accent); }
         .info-section { background: var(--color-bg-secondary); padding: 50px; border-radius: var(--radius-md); border: 1px solid var(--color-border); margin-bottom: 40px; }
         .info-section h2 { margin-bottom: 20px; color: var(--color-accent); font-family: var(--font-heading); }
         .info-section p { color: var(--color-text-secondary); margin-bottom: 15px; }
         .info-section ul { padding-left: 20px; color: var(--color-text-secondary); margin-bottom: 15px; }
-        .info-section li { margin-bottom: 10px; list-style-type: disc;}
+        .info-section li { margin-bottom: 10px; list-style-type: disc; }
     </style>
 </head>
 <body>
@@ -28,27 +31,43 @@
     </nav>
 
     <main class="info-container">
-        <h1>Informations Pratiques</h1>
-        
+        <h1>Mentions Légales</h1>
+
+        <div class="info-disclaimer">
+            <strong>Site de démonstration.</strong> AURA est un projet fictif réalisé à but pédagogique/portfolio. Aucune commande réelle n'est traitée et les informations ci-dessous (société, adresse, hébergeur) sont des exemples, pas des données réelles.
+        </div>
+
         <div class="info-section">
-            <h2>Livraison & Retours</h2>
-            <p>Chez AURA, nous nous engageons à vous offrir une expérience d'achat aussi exceptionnelle que nos montures.</p>
+            <h2>Éditeur du site</h2>
+            <p>Le site AURA (ci-après « le Site ») est un projet de démonstration édité par :</p>
             <ul>
-                <li><strong>Livraison Standard :</strong> Offerte pour toute commande, livraison sous 3 à 5 jours ouvrés.</li>
-                <li><strong>Livraison Express :</strong> 15€, livraison sous 24h à 48h.</li>
-                <li><strong>Retours :</strong> Vous disposez de 30 jours pour retourner votre article s'il ne vous convient pas, sans poser de questions. L'étiquette de retour est incluse dans le colis.</li>
+                <li><strong>Raison sociale :</strong> AURA Eyewear SAS (société fictive, exemple)</li>
+                <li><strong>Siège social :</strong> 12 rue de l'Atelier, 75003 Paris, France (adresse fictive)</li>
+                <li><strong>SIRET :</strong> 000 000 000 00000 (numéro fictif)</li>
+                <li><strong>Capital social :</strong> 10 000 € (exemple)</li>
+                <li><strong>Directeur de la publication :</strong> l'auteur du projet AURA</li>
+                <li><strong>Email :</strong> contact@aura-eyewear-demo.fr (adresse d'exemple)</li>
             </ul>
         </div>
 
         <div class="info-section">
-            <h2>Entretien de vos montures</h2>
-            <p>Pour garantir la longévité et l'éclat de vos lunettes AURA, veuillez suivre ces quelques conseils d'entretien :</p>
-            <ul>
-                <li>Utilisez toujours le chiffon en microfibre fourni pour nettoyer les verres.</li>
-                <li>Évitez les produits chimiques agressifs ; privilégiez de l'eau tiède et un savon doux si nécessaire.</li>
-                <li>Rangez vos lunettes dans leur étui rigide lorsque vous ne les portez pas.</li>
-                <li>Ne posez jamais vos lunettes face contre table pour éviter les rayures sur les verres.</li>
-            </ul>
+            <h2>Hébergement</h2>
+            <p>Ce site de démonstration est destiné à être hébergé sur une plateforme d'hébergement web standard (ex. Vercel, Netlify, OVH). Aucun hébergement de production réel n'est actuellement en place.</p>
+        </div>
+
+        <div class="info-section">
+            <h2>Propriété intellectuelle</h2>
+            <p>L'ensemble des éléments du Site (textes, visuels, logo, charte graphique) sont fournis à titre d'exemple dans le cadre de ce projet de démonstration et ne constituent pas une marque déposée.</p>
+        </div>
+
+        <div class="info-section">
+            <h2>Limitation de responsabilité</h2>
+            <p>S'agissant d'un site fictif, aucune transaction commerciale réelle n'a lieu. Les paiements effectués via le module de démonstration Stripe sont réalisés en mode test et ne débitent aucune somme réelle.</p>
+        </div>
+
+        <div class="info-section">
+            <h2>Nous contacter</h2>
+            <p>Pour toute question relative à ce projet de démonstration, utilisez le <a href="contact.html">formulaire de contact</a>.</p>
         </div>
     </main>
 
@@ -86,7 +105,7 @@
             </div>
         </div>
         <div class="footer-bottom">
-            <p>&copy; 2026 AURA Eyewear. Tous droits réservés.</p>
+            <p>&copy; 2026 AURA Eyewear. Tous droits réservés. — Site de démonstration.</p>
         </div>
     </footer>
 

@@ -686,7 +686,7 @@ button {
     max-width: 1400px;
     margin: 0 auto;
     display: grid;
-    grid-template-columns: 2fr 1fr 1fr;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
     gap: 60px;
     margin-bottom: 60px;
 }
@@ -728,5 +728,88 @@ button {
     .footer-container {
         grid-template-columns: 1fr;
         gap: 40px;
+    }
+}
+
+/* =========================================================================
+   Cookie Consent Banner
+   ========================================================================= */
+.cookie-banner {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 2000;
+    background: var(--color-bg-secondary);
+    border-top: 1px solid var(--color-border);
+    padding: 25px 5%;
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.4);
+    transform: translateY(100%);
+    transition: transform 0.4s ease;
+}
+
+.cookie-banner.is-visible {
+    transform: translateY(0);
+}
+
+.cookie-banner-inner {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 30px;
+    flex-wrap: wrap;
+}
+
+.cookie-banner-text {
+    flex: 1;
+    min-width: 260px;
+    color: var(--color-text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.6;
+}
+
+.cookie-banner-text strong {
+    color: var(--color-text-primary);
+}
+
+.cookie-banner-text a {
+    color: var(--color-accent);
+    text-decoration: underline;
+}
+
+.cookie-banner-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.cookie-banner-actions .btn {
+    padding: 12px 24px;
+    font-size: 0.85rem;
+    white-space: nowrap;
+}
+
+.cookie-btn-refuse {
+    background: transparent;
+    color: var(--color-text-secondary);
+    border: 1px solid var(--color-border);
+}
+
+.cookie-btn-refuse:hover {
+    border-color: var(--color-text-primary);
+    color: var(--color-text-primary);
+}
+
+@media (max-width: 600px) {
+    .cookie-banner-inner {
+        flex-direction: column;
+        align-items: stretch;
+        text-align: center;
+    }
+    .cookie-banner-actions {
+        justify-content: center;
     }
 }

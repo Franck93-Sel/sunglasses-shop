@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AURA | Politique de Confidentialité</title>
+    <meta name="description" content="Politique de confidentialité et gestion des cookies du site AURA — site de démonstration à but pédagogique.">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .info-container { max-width: 800px; margin: 150px auto 100px; padding: 0 5%; }
+        .info-container h1 { font-size: 3rem; margin-bottom: 20px; text-align: center; }
+        .info-disclaimer { background: var(--color-bg-tertiary); border: 1px solid var(--color-accent); border-radius: var(--radius-md); padding: 20px 25px; margin-bottom: 40px; color: var(--color-text-secondary); font-size: 0.95rem; }
+        .info-disclaimer strong { color: var(--color-accent); }
+        .info-section { background: var(--color-bg-secondary); padding: 50px; border-radius: var(--radius-md); border: 1px solid var(--color-border); margin-bottom: 40px; }
+        .info-section h2 { margin-bottom: 20px; color: var(--color-accent); font-family: var(--font-heading); }
+        .info-section p { color: var(--color-text-secondary); margin-bottom: 15px; }
+        .info-section ul { padding-left: 20px; color: var(--color-text-secondary); margin-bottom: 15px; }
+        .info-section li { margin-bottom: 10px; list-style-type: disc; }
+        .info-section table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+        .info-section th, .info-section td { text-align: left; padding: 12px; border-bottom: 1px solid var(--color-border); color: var(--color-text-secondary); font-size: 0.9rem; }
+        .info-section th { color: var(--color-text-primary); font-weight: 600; }
+        .cookie-settings-link { color: var(--color-accent); text-decoration: underline; cursor: pointer; background: none; border: none; font: inherit; padding: 0; }
+    </style>
+</head>
+<body>
+    <nav class="navbar scrolled" id="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="logo">AURA</a>
+            <ul class="nav-links">
+                <li><a href="index.html">Accueil</a></li>
+                <li><a href="shop.html">Collection</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="info-container">
+        <h1>Politique de Confidentialité</h1>
+
+        <div class="info-disclaimer">
+            <strong>Site de démonstration.</strong> Cette politique est un exemple rédigé à but pédagogique/portfolio, inspiré du RGPD. Le Site ne collecte aucune donnée à des fins commerciales réelles ; les informations saisies (formulaire de contact, checkout) restent locales à votre navigateur ou transitent uniquement vers les services de démonstration (Stripe test, n8n).
+        </div>
+
+        <div class="info-section">
+            <h2>1. Quelles données sont traitées ?</h2>
+            <p>Dans le cadre de cette démonstration, les données suivantes peuvent être saisies par vous :</p>
+            <ul>
+                <li><strong>Panier :</strong> stocké uniquement dans le <code>localStorage</code> de votre navigateur (jamais envoyé à un serveur tant que vous ne validez pas la commande).</li>
+                <li><strong>Formulaire de commande :</strong> nom, email, adresse postale — transmis au module de paiement de test Stripe via un workflow n8n de démonstration, pour illustrer l'envoi d'un email de confirmation.</li>
+                <li><strong>Formulaire de contact :</strong> nom, email, message — traité côté client uniquement dans cette démonstration, sans envoi réel.</li>
+            </ul>
+        </div>
+
+        <div class="info-section">
+            <h2>2. Base légale et finalité</h2>
+            <p>À titre d'exemple pédagogique, la base légale retenue serait l'exécution d'une commande (article 6.1.b du RGPD) pour le formulaire de checkout, et le consentement (article 6.1.a) pour les cookies non essentiels.</p>
+        </div>
+
+        <div class="info-section">
+            <h2>3. Cookies utilisés</h2>
+            <p>Le Site utilise les cookies et technologies de stockage local suivants :</p>
+            <table>
+                <tr><th>Nom</th><th>Finalité</th><th>Type</th></tr>
+                <tr><td><code>auraCart</code></td><td>Mémoriser le contenu de votre panier entre les pages</td><td>Essentiel (localStorage)</td></tr>
+                <tr><td><code>auraCookieConsent</code></td><td>Mémoriser votre choix concernant la bannière cookies</td><td>Essentiel (localStorage)</td></tr>
+            </table>
+            <p>Aucun cookie publicitaire ou de mesure d'audience tiers n'est déposé sur ce site de démonstration.</p>
+            <p>Vous pouvez modifier votre choix à tout moment : <button type="button" class="cookie-settings-link" id="reopenCookieSettings">gérer mes préférences cookies</button>.</p>
+        </div>
+
+        <div class="info-section">
+            <h2>4. Durée de conservation</h2>
+            <p>Les données stockées localement (panier, préférence cookies) restent dans votre navigateur jusqu'à ce que vous les supprimiez manuellement ou videz le cache de votre navigateur. Aucune donnée n'est conservée sur un serveur de production.</p>
+        </div>
+
+        <div class="info-section">
+            <h2>5. Vos droits</h2>
+            <p>Conformément au RGPD, vous disposeriez, sur un site réel, d'un droit d'accès, de rectification, d'effacement et d'opposition sur vos données. Sur ce projet de démonstration, il suffit de vider le <code>localStorage</code> de votre navigateur pour supprimer toutes les données stockées, ou de nous contacter via le <a href="contact.html">formulaire de contact</a>.</p>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer" id="about">
+        <div class="footer-container">
+            <div class="footer-brand">
+                <h3 class="logo">AURA</h3>
+                <p>L'excellence visuelle, le design intemporel. Créateur de montures d'exception depuis 2026.</p>
+            </div>
+            <div class="footer-links-group">
+                <h4>Boutique</h4>
+                <ul>
+                    <li><a href="shop.html">Nouvelle Collection</a></li>
+                    <li><a href="shop.html?category=homme">Montures Homme</a></li>
+                    <li><a href="shop.html?category=femme">Montures Femme</a></li>
+                    <li><a href="shop.html?category=accessoires">Accessoires</a></li>
+                </ul>
+            </div>
+            <div class="footer-links-group">
+                <h4>Service Client</h4>
+                <ul>
+                    <li><a href="info.html">Livraison & Retours</a></li>
+                    <li><a href="info.html">Entretien</a></li>
+                    <li><a href="contact.html">Contactez-nous</a></li>
+                </ul>
+            </div>
+            <div class="footer-links-group">
+                <h4>Informations légales</h4>
+                <ul>
+                    <li><a href="mentions-legales.html">Mentions légales</a></li>
+                    <li><a href="cgv.html">CGV</a></li>
+                    <li><a href="confidentialite.html">Confidentialité (RGPD)</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2026 AURA Eyewear. Tous droits réservés. — Site de démonstration.</p>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+    <script>
+        document.getElementById('reopenCookieSettings')?.addEventListener('click', () => {
+            localStorage.removeItem('auraCookieConsent');
+            if (window.showCookieBanner) window.showCookieBanner();
+        });
+    </script>
+</body>
+</html>

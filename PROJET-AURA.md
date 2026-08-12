@@ -2,6 +2,8 @@
 
 Récapitulatif de session : e-commerce de lunettes de soleil (site statique HTML/CSS/JS) + automatisation paiement via n8n/Stripe.
 
+**Projet fictif / démo** — ne sera pas mis en ligne en production. Reste en mode test/sandbox (Stripe test, n8n de démo) : les points liés à une vraie mise en production ne sont pas à traiter.
+
 ## ✅ Fait
 
 ### Site (front)
@@ -23,9 +25,9 @@ Récapitulatif de session : e-commerce de lunettes de soleil (site statique HTML
 - **Email de confirmation** : le credential Gmail avait un token OAuth2 expiré/révoqué (`invalid_grant`). Reconnecté dans n8n (`Credentials` → "Gmail account" → Reconnect). Testé de bout en bout le 2026-08-12 : ajout panier → checkout → paiement Stripe test (carte 4242) → email "Confirmation de votre commande AURA" bien reçu.
 
 ## 🔜 Reste à faire / pistes
-- Vérifier/adapter les URLs `successUrl` / `cancelUrl` envoyées à Stripe : actuellement calculées dynamiquement depuis `window.location`, donc dépendantes du domaine réel une fois le site déployé (à revalider en prod, pas seulement en local).
 - Le nœud HTTP Request Stripe (création de session) utilise un credential **Bearer Auth** séparé du credential Stripe natif — limitation de l'outil MCP n8n qui ne peut pas lier un credential générique automatiquement. Si ce credential doit être recréé un jour, il faudra relier le nœud "Créer Session Stripe" à la main dans l'éditeur n8n.
-- Basculer Stripe et le webhook n8n en mode **production** (clés live, workflow toujours actif) avant une vraie mise en ligne — tout est actuellement en mode **test/sandbox**.
 - Pas de page "Accessoires" ni de produits dans cette catégorie malgré le filtre présent sur `shop.html` — filtre fonctionnel mais catalogue vide pour l'instant.
-- Pas de vérification serveur de la session Stripe sur `checkout-success.html` (on fait confiance à la redirection) — pour une vraie prod, prévoir une vérification du paiement côté n8n/serveur avant d'afficher la confirmation.
 - `.mcp.json` (config du serveur MCP n8n) est désormais ignoré par git (ajouté au `.gitignore`) — à garder en tête si le projet est cloné ailleurs, il faudra recréer ce fichier et les credentials.
+
+## ⏭️ Non applicable (site fictif, pas de mise en production)
+- URLs `successUrl` / `cancelUrl` Stripe, bascule en mode production (clés live), vérification serveur de la session Stripe sur `checkout-success.html` — tout ceci ne concerne qu'un vrai déploiement en prod.
