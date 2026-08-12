@@ -18,16 +18,11 @@ Récapitulatif de session : e-commerce de lunettes de soleil (site statique HTML
 - Nouvelle page `checkout-success.html` (vide le panier après retour de paiement réussi).
 - Credentials n8n configurés : Stripe (`stripeApi`), Bearer Auth (pour l'appel HTTP direct à l'API Stripe côté création de session), Gmail (`gmailOAuth2`).
 
-## ⚠️ Testé — bug identifié à corriger
+## ✅ Corrigé
 
-- **Email de confirmation non envoyé** : le workflow de confirmation se déclenche bien au paiement (vérifié sur une vraie session test à 1250,00 €), l'extraction des données fonctionne, mais l'envoi Gmail échoue avec une erreur OAuth2 :
-  > `invalid_grant` — jeton d'autorisation invalide, expiré ou révoqué.
-
-  **Action à faire** : dans n8n, reconnecter le credential **"Gmail account"** (`Credentials` → ouvrir "Gmail account" → se reconnecter via OAuth). Une fois reconnecté, relancer un paiement test pour vérifier la réception de l'email.
+- **Email de confirmation** : le credential Gmail avait un token OAuth2 expiré/révoqué (`invalid_grant`). Reconnecté dans n8n (`Credentials` → "Gmail account" → Reconnect). Testé de bout en bout le 2026-08-12 : ajout panier → checkout → paiement Stripe test (carte 4242) → email "Confirmation de votre commande AURA" bien reçu.
 
 ## 🔜 Reste à faire / pistes
-
-- Reconnecter le credential Gmail (voir ci-dessus) — bloquant pour les confirmations de commande.
 - Vérifier/adapter les URLs `successUrl` / `cancelUrl` envoyées à Stripe : actuellement calculées dynamiquement depuis `window.location`, donc dépendantes du domaine réel une fois le site déployé (à revalider en prod, pas seulement en local).
 - Le nœud HTTP Request Stripe (création de session) utilise un credential **Bearer Auth** séparé du credential Stripe natif — limitation de l'outil MCP n8n qui ne peut pas lier un credential générique automatiquement. Si ce credential doit être recréé un jour, il faudra relier le nœud "Créer Session Stripe" à la main dans l'éditeur n8n.
 - Basculer Stripe et le webhook n8n en mode **production** (clés live, workflow toujours actif) avant une vraie mise en ligne — tout est actuellement en mode **test/sandbox**.
