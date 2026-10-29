@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AURA | Back-office</title>
+    <meta name="robots" content="noindex">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <nav class="navbar scrolled" id="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="logo">AURA</a>
+            <ul class="nav-links">
+                <li><a href="index.html">Accueil</a></li>
+                <li><a href="shop.html">Collection</a></li>
+            </ul>
+            <div class="nav-actions">
+                <span class="nav-user" id="navUser" hidden>
+                    <span id="navGreeting"></span>
+                    <span aria-hidden="true">·</span>
+                    <button type="button" id="signOutBtn">Déconnexion</button>
+                </span>
+                <a href="admin.html" class="account-link" id="accountLink" aria-label="Mon espace">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="account-container admin-container">
+        <h1 class="orders-title">Tableau de bord</h1>
+        <div class="admin-demo" id="demoBanner" hidden>Mode démo — seules les commandes fictives sont visibles</div>
+        <div class="kpis" id="kpis" aria-live="polite">
+            <div class="kpi"><span class="account-muted">Chiffre d'affaires</span><div class="kpi-value" id="kpiRevenue">…</div></div>
+            <div class="kpi"><span class="account-muted">Commandes</span><div class="kpi-value" id="kpiCount">…</div></div>
+            <div class="kpi"><span class="account-muted">À expédier</span><div class="kpi-value" id="kpiToShip">…</div></div>
+            <div class="kpi"><span class="account-muted">Top produit</span><div class="kpi-value kpi-text" id="kpiTop">…</div></div>
+        </div>
+        <div class="account-message" id="adminStatus" role="status" hidden></div>
+        <div class="account-message is-error" id="adminError" role="alert" hidden></div>
+        <div class="admin-table-wrap">
+            <table class="admin-table">
+                <thead>
+                    <tr><th>Commande</th><th class="hide-sm">Date</th><th>Client</th><th>Total</th><th>Statut</th></tr>
+                </thead>
+                <tbody id="ordersBody"></tbody>
+            </table>
+        </div>
+    </main>
+
+    <footer class="footer" id="about">
+        <div class="footer-container">
+            <div class="footer-brand">
+                <h3 class="logo">AURA</h3>
+                <p>L'excellence visuelle, le design intemporel. Créateur de montures d'exception depuis 2026.</p>
+            </div>
+            <div class="footer-links-group">
+                <h4>Boutique</h4>
+                <ul>
+                    <li><a href="shop.html">Nouvelle Collection</a></li>
+                    <li><a href="shop.html?category=homme">Montures Homme</a></li>
+                    <li><a href="shop.html?category=femme">Montures Femme</a></li>
+                    <li><a href="shop.html?category=accessoires">Accessoires</a></li>
+                </ul>
+            </div>
+            <div class="footer-links-group">
+                <h4>Service Client</h4>
+                <ul>
+                    <li><a href="info.html">Livraison & Retours</a></li>
+                    <li><a href="info.html">Entretien</a></li>
+                    <li><a href="contact.html">Contactez-nous</a></li>
+                </ul>
+            </div>
+            <div class="footer-links-group">
+                <h4>Informations légales</h4>
+                <ul>
+                    <li><a href="mentions-legales.html">Mentions légales</a></li>
+                    <li><a href="cgv.html">CGV</a></li>
+                    <li><a href="confidentialite.html">Confidentialité (RGPD)</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2026 AURA Eyewear. Tous droits réservés.</p>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+    <script type="module" src="js/nav-account.js"></script>
+    <script type="module" src="js/admin.js"></script>
+</body>
+</html>
