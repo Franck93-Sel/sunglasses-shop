@@ -62,7 +62,9 @@ async function register(email, password, name) {
   const { error } = await signUp(email, password, name);
   if (error) {
     setBusy(false);
-    show(error, true);
+    show(/exist|already|registered/i.test(error)
+      ? 'Un compte existe déjà avec cet email. Connectez-vous.'
+      : 'Création du compte impossible. Vérifiez vos informations et réessayez.', true);
     return;
   }
   // Pas de session après l'inscription = vérification d'email requise.
