@@ -57,15 +57,55 @@
       "webhookId": "ba203c6a-fc69-4505-87f2-18d1aaa775df"
     },
     {
-      "id": "434ced0d-8dd1-4eb9-aacd-234d071c2002",
-      "name": "Récupérer Articles (Stripe)",
+      "id": "ca592c5d-45f4-4039-acf2-d600697219d9",
+      "name": "Vérifier Session (Stripe)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [540, 100],
       "onError": "continueErrorOutput",
       "parameters": {
         "method": "GET",
-        "url": "=https://api.stripe.com/v1/checkout/sessions/{{ $json.data.object.id }}/line_items?limit=100",
+        "url": "=https://api.stripe.com/v1/checkout/sessions/{{ $json.data.object.id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "options": {}
+      },
+      "credentials": {
+        "httpBearerAuth": { "id": "C44ly21Yw1BFymeU", "name": "Bearer Auth account" }
+      }
+    },
+    {
+      "id": "54643f2b-3647-4518-a473-fc057c434f1a",
+      "name": "Paiement confirmé ?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [760, 80],
+      "parameters": {
+        "conditions": {
+          "options": { "version": 2, "leftValue": "", "caseSensitive": true, "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.payment_status }}",
+              "rightValue": "paid",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "434ced0d-8dd1-4eb9-aacd-234d071c2002",
+      "name": "Récupérer Articles (Stripe)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [980, 80],
+      "onError": "continueErrorOutput",
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.stripe.com/v1/checkout/sessions/{{ $json.id }}/line_items?limit=100",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpBearerAuth",
         "options": {}
@@ -79,18 +119,39 @@
       "name": "Enregistrer Commande (Neon)",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [840, 100],
+      "position": [1200, 60],
       "onError": "continueErrorOutput",
       "parameters": {
         "operation": "executeQuery",
-        "query": "with new_order as (\n  insert into app.orders (email, total, stripe_session_id, is_demo)\n  values ($1, round($2::numeric / 100, 2), $3, false)\n  on conflict (stripe_session_id) do nothing\n  returning id, order_number\n), new_items as (\n  insert into app.order_items (order_id, product_name, unit_price, quantity)\n  select o.id, li.description, round(li.amount_total::numeric / li.quantity / 100, 2), li.quantity\n  from new_order o\n  cross join jsonb_to_recordset($4::jsonb) as li(description text, amount_total bigint, quantity int)\n  returning id\n)\nselect (select id from new_order) as order_id,\n       (select order_number from new_order) as order_number,\n       (select count(*) from new_items)::int as items_inserted",
+        "query": "with new_order as (\n  insert into app.orders (email, total, stripe_session_id, is_demo)\n  values (nullif($1, ''), round($2::numeric / 100, 2), $3, false)\n  on conflict (stripe_session_id) do nothing\n  returning id, order_number\n), new_items as (\n  insert into app.order_items (order_id, product_name, unit_price, quantity)\n  select o.id, li.description, round(li.amount_total::numeric / li.quantity / 100, 2), li.quantity\n  from new_order o\n  cross join jsonb_to_recordset($4::jsonb) as li(description text, amount_total bigint, quantity int)\n  returning id\n)\nselect (select id from new_order) as order_id,\n       (select order_number from new_order) as order_number,\n       (select count(*) from new_items)::int as items_inserted",
         "options": {
-          "queryReplacement": "={{ $('Paiement Reçu (Stripe)').item.json.data.object.customer_details?.email }}, {{ $('Paiement Reçu (Stripe)').item.json.data.object.amount_total }}, {{ $('Paiement Reçu (Stripe)').item.json.data.object.id }}, {{ JSON.stringify($json.data.map(li => ({ description: li.description, amount_total: li.amount_total, quantity: li.quantity }))) }}"
+          "queryReplacement": "={{ $('Vérifier Session (Stripe)').item.json.customer_details?.email || $('Vérifier Session (Stripe)').item.json.customer_email || '' }}, {{ $('Vérifier Session (Stripe)').item.json.amount_total }}, {{ $('Vérifier Session (Stripe)').item.json.id }}, {{ JSON.stringify($json.data.map(li => ({ description: li.description, amount_total: li.amount_total, quantity: li.quantity }))) }}"
         }
       },
       "credentials": {
         "postgres": { "id": "V0ZMCCxh2dSUoJN6", "name": "Postgres account" }
       }
+    },
+    {
+      "id": "f62f1b71-8db3-4d7b-94c5-678ed93b9ff6",
+      "name": "Alerte commande non enregistrée",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [1420, -120],
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "franck.sellito.paris@gmail.com",
+        "subject": "=[AURA] Commande NON enregistrée : {{ $('Paiement Reçu (Stripe)').first().json.data.object.id }}",
+        "emailType": "text",
+        "message": "=Une commande payée n'a pas pu être enregistrée dans Neon.\n\nÉtape en échec : {{ $prevNode.name }}\nSession Stripe : {{ $('Paiement Reçu (Stripe)').first().json.data.object.id }}\nEmail client (payload webhook) : {{ $('Paiement Reçu (Stripe)').first().json.data.object.customer_details?.email || $('Paiement Reçu (Stripe)').first().json.data.object.customer_email || 'inconnu' }}\nErreur : {{ $json.error?.message || $json.message || JSON.stringify($json.error ?? $json) }}\n\nVérifier l'exécution dans n8n puis, si le paiement est réel, renvoyer l'événement depuis le dashboard Stripe (l'insertion est idempotente).",
+        "options": { "appendAttribution": false }
+      },
+      "credentials": {
+        "gmailOAuth2": { "id": "Gg4MhaOfLEeJUVcS", "name": "Gmail account" }
+      },
+      "webhookId": "1bb487a5-cd22-4912-8fd3-3785a1225a0f"
     }
   ],
   "connections": {
@@ -98,15 +159,33 @@
       "main": [
         [
           { "node": "Extraire Infos Commande", "type": "main", "index": 0 },
-          { "node": "Récupérer Articles (Stripe)", "type": "main", "index": 0 }
+          { "node": "Vérifier Session (Stripe)", "type": "main", "index": 0 }
         ]
       ]
     },
     "Extraire Infos Commande": {
       "main": [[{ "node": "Envoyer Email Confirmation", "type": "main", "index": 0 }]]
     },
+    "Vérifier Session (Stripe)": {
+      "main": [
+        [{ "node": "Paiement confirmé ?", "type": "main", "index": 0 }],
+        [{ "node": "Alerte commande non enregistrée", "type": "main", "index": 0 }]
+      ]
+    },
+    "Paiement confirmé ?": {
+      "main": [[{ "node": "Récupérer Articles (Stripe)", "type": "main", "index": 0 }]]
+    },
     "Récupérer Articles (Stripe)": {
-      "main": [[{ "node": "Enregistrer Commande (Neon)", "type": "main", "index": 0 }]]
+      "main": [
+        [{ "node": "Enregistrer Commande (Neon)", "type": "main", "index": 0 }],
+        [{ "node": "Alerte commande non enregistrée", "type": "main", "index": 0 }]
+      ]
+    },
+    "Enregistrer Commande (Neon)": {
+      "main": [
+        [],
+        [{ "node": "Alerte commande non enregistrée", "type": "main", "index": 0 }]
+      ]
     }
   },
   "settings": { "executionOrder": "v1" },
