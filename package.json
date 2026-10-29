@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --env-file=tests/.env --test \"tests/*.test.mjs\""
+    "test": "node --env-file=tests/.env --test-concurrency=1 --test \"tests/*.test.mjs\""
   },
   "devDependencies": {
     "@neondatabase/neon-js": "0.9.0-beta",
