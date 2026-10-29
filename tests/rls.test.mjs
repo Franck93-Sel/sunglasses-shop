@@ -14,16 +14,22 @@ const BUYER = 'rls-buyer@aura-demo.fr';
 const STRANGER = 'rls-stranger@aura-demo.fr';
 const DEMO_ADMIN = 'admin@aura-demo.fr';
 const PRIVATE_ADMIN = process.env.RLS_ADMIN_EMAIL; // rôle « admin privé » (scope all) en test
-const TEST_PASSWORD = process.env.RLS_ADMIN_PASSWORD; // mot de passe aléatoire des comptes rls-*
+const ADMIN_PASSWORD = process.env.RLS_ADMIN_PASSWORD; // mot de passe aléatoire de rls-admin
+const USER_PASSWORD = process.env.RLS_USER_PASSWORD; // mot de passe aléatoire de rls-buyer / rls-stranger
 
 const ids = {}; // commandes de test : own, messy, other, delivered, demo
 let buyer, stranger, demoAdmin, privateAdmin;
+let privateAdminId; // la ligne admins « all » n'existe que le temps des tests
 
 const findUser = (email) => sql`select id::text as id from neon_auth."user" where email = ${email}`;
 
 // Inscription brute (Node n'a ni Origin ni cookies pour le SDK), seulement si le compte manque
-// (Neon Auth limite le débit des inscriptions : 429).
+// (Neon Auth limite le débit des inscriptions : 429). L'inscription étant publique, un compte
+// trouvé par email peut appartenir à quelqu'un d'autre : on prouve qu'il est à nous en se
+// connectant avec le mot de passe attendu et en comparant l'id, AVANT toute écriture
+// (emailVerified, app.admins). Échec de connexion => la suite échoue, rien n'est écrit.
 async function ensureAccount(email, password) {
+  if (!password) throw new Error(`mot de passe manquant pour ${email} (tests/.env)`);
   if (!(await findUser(email)).length) {
     const res = await fetch(`${process.env.NEON_AUTH_URL}/sign-up/email`, {
       method: 'POST',
@@ -34,8 +40,10 @@ async function ensureAccount(email, password) {
   }
   const [row] = await findUser(email);
   if (!row) throw new Error(`compte introuvable après inscription : ${email}`);
+  const client = await signedInClient(email, password); // lève si le mot de passe ne correspond pas
+  if (client.userId !== row.id) throw new Error(`compte ${email} : id de session inattendu, abandon`);
   await sql`update neon_auth."user" set "emailVerified" = true where id::text = ${row.id}`;
-  return row.id;
+  return { id: row.id, client };
 }
 
 async function insertOrder({ email, total, status = 'payee', isDemo = false, product = 'RLS test item' }) {
@@ -58,16 +66,27 @@ async function dbOrder(id) {
 const orders = (client) => client.schema(SCHEMA).from('orders');
 
 before(async () => {
-  await ensureAccount(BUYER, TEST_PASSWORD);
-  await ensureAccount(STRANGER, TEST_PASSWORD);
-  const demoAdminId = await ensureAccount(DEMO_ADMIN, DEMO_PASSWORD);
+  // En série : le helper réessaie si Neon Auth limite le débit (429).
+  ({ client: buyer } = await ensureAccount(BUYER, USER_PASSWORD));
+  ({ client: stranger } = await ensureAccount(STRANGER, USER_PASSWORD));
+  const demo = await ensureAccount(DEMO_ADMIN, DEMO_PASSWORD);
+  demoAdmin = demo.client;
   await ensureAccount('client@aura-demo.fr', DEMO_PASSWORD); // compte démo acheteur (Task 3)
-  const privateAdminId = await ensureAccount(PRIVATE_ADMIN, TEST_PASSWORD);
+  const priv = await ensureAccount(PRIVATE_ADMIN, ADMIN_PASSWORD);
+  privateAdmin = priv.client;
 
+  // admin@aura-demo.fr : scope « demo » permanent (utilisé par le site).
   await sql.query(
-    `insert into ${SCHEMA}.admins (user_id, scope) values ($1, 'demo'), ($2, 'all')
+    `insert into ${SCHEMA}.admins (user_id, scope) values ($1, 'demo')
      on conflict (user_id) do update set scope = excluded.scope`,
-    [demoAdminId, privateAdminId],
+    [demo.id],
+  );
+  // rls-admin : scope « all » temporaire, supprimé dans after().
+  privateAdminId = priv.id;
+  await sql.query(
+    `insert into ${SCHEMA}.admins (user_id, scope) values ($1, 'all')
+     on conflict (user_id) do update set scope = excluded.scope`,
+    [privateAdminId],
   );
 
   ids.own = await insertOrder({ email: BUYER, total: 120 });
@@ -75,15 +94,13 @@ before(async () => {
   ids.other = await insertOrder({ email: 'rls-test@aura-demo.fr', total: 200 });
   ids.delivered = await insertOrder({ email: 'rls-test@aura-demo.fr', total: 50, status: 'livree' });
   ids.demo = await insertOrder({ email: 'rls-demo@aura-demo.fr', total: 99, isDemo: true });
-
-  // En série : le helper réessaie si Neon Auth limite le débit (429).
-  buyer = await signedInClient(BUYER, TEST_PASSWORD);
-  stranger = await signedInClient(STRANGER, TEST_PASSWORD);
-  demoAdmin = await signedInClient(DEMO_ADMIN, DEMO_PASSWORD);
-  privateAdmin = await signedInClient(PRIVATE_ADMIN, TEST_PASSWORD);
-}, { timeout: 120_000 });
+}, { timeout: 180_000 });
 
 after(async () => {
+  // Retire l'accès « all » du compte de test, même si la préparation a échoué en route.
+  const [row] = PRIVATE_ADMIN ? await findUser(PRIVATE_ADMIN) : [];
+  const adminId = privateAdminId ?? row?.id;
+  if (adminId) await sql.query(`delete from ${SCHEMA}.admins where user_id = $1 and scope = 'all'`, [adminId]);
   const list = Object.values(ids);
   if (list.length) await sql.query(`delete from ${SCHEMA}.orders where id = any($1::bigint[])`, [list]);
 });
@@ -101,6 +118,15 @@ test('email linking ignores case', async () => {
   const { data, error } = await orders(buyer).select('id').eq('id', ids.messy);
   assert.equal(error, null);
   assert.equal(data.length, 1);
+});
+
+test('email normalisation also applies on update', async () => {
+  await sql.query(`update ${SCHEMA}.orders set email = $1 where id = $2`, ['  RLS-Update@Aura-Demo.FR ', ids.delivered]);
+  try {
+    assert.equal((await dbOrder(ids.delivered)).email, 'rls-update@aura-demo.fr');
+  } finally {
+    await sql.query(`update ${SCHEMA}.orders set email = $1 where id = $2`, ['rls-test@aura-demo.fr', ids.delivered]);
+  }
 });
 
 test('buyer sees only own orders, with items', async () => {

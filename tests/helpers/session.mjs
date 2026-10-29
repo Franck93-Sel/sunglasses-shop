@@ -22,6 +22,7 @@ export async function signedInClient(email, password) {
     const body = await res.json().catch(() => ({}));
     throw new Error(`signIn ${email}: ${body.message || res.status}`);
   }
+  const body = await res.json().catch(() => ({}));
   const cookie = res.headers
     .getSetCookie()
     .map((c) => c.split(';')[0])
@@ -38,5 +39,6 @@ export async function signedInClient(email, password) {
     dataApi: { url: process.env.NEON_DATA_API_URL, getToken },
   });
   client.getToken = getToken; // utile aux tests (inspection du JWT)
+  client.userId = body.user?.id; // id Neon Auth du compte connecté (preuve de possession)
   return client;
 }
