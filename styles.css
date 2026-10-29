@@ -986,3 +986,139 @@ button {
         padding: 22px 18px;
     }
 }
+
+/* =========================================================================
+   Espace acheteur : Mes commandes
+   ========================================================================= */
+.nav-user {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-right: 22px;
+    font-size: 0.85rem;
+    color: var(--color-accent);
+}
+
+.nav-user[hidden] {
+    display: none;
+}
+
+.nav-user button {
+    background: none;
+    border: 0;
+    padding: 0;
+    font: inherit;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: color var(--transition-fast);
+}
+
+.nav-user button:hover {
+    color: var(--color-accent);
+}
+
+.orders-title {
+    font-size: 2rem;
+    margin-bottom: 4px;
+}
+
+.order-card {
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    padding: 18px;
+    margin-top: 16px;
+    min-width: 0;
+}
+
+.order-head {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.order-badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 20px;
+    padding: 3px 10px;
+}
+
+.order-badge.status-payee { background: rgba(207, 161, 95, 0.15); color: var(--color-accent); }
+.order-badge.status-expediee { background: rgba(111, 163, 216, 0.15); color: #6fa3d8; }
+.order-badge.status-livree { background: rgba(95, 185, 138, 0.15); color: #5fb98a; }
+
+.order-total {
+    margin-left: 10px;
+}
+
+.timeline {
+    display: flex;
+    align-items: center;
+    margin: 14px 0 6px;
+}
+
+.tl-dot {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    border: 2px solid var(--color-border);
+    background: var(--color-bg-main);
+}
+
+.tl-bar {
+    flex: 1;
+    height: 2px;
+    background: var(--color-border);
+}
+
+.tl-dot.on {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+}
+
+.tl-bar.on {
+    background: var(--color-accent);
+}
+
+.tl-labels {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 0.75rem;
+    color: var(--color-text-secondary);
+}
+
+.order-items {
+    margin-top: 10px;
+    font-size: 0.85rem;
+    color: var(--color-text-secondary);
+    overflow-wrap: anywhere;
+}
+
+.order-tracking {
+    color: var(--color-accent);
+}
+
+.orders-empty {
+    margin-top: 20px;
+    text-align: center;
+}
+
+.orders-empty .btn {
+    display: inline-block;
+    margin-top: 18px;
+}
+
+@media (max-width: 760px) {
+    .nav-user {
+        margin-right: 12px;
+        font-size: 0.75rem;
+    }
+    .tl-labels {
+        font-size: 0.68rem;
+    }
+}

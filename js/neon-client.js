@@ -55,3 +55,14 @@ export async function requireUser(redirectTo = 'compte.html') {
   }
   return user;
 }
+
+// Page d'accueil de l'espace connecté : back-office pour un admin, sinon commandes.
+export async function resolveHome() {
+  try {
+    const { data } = await neon.schema('app').rpc('admin_scope');
+    if (data) return 'admin.html';
+  } catch {
+    /* rôle indéterminé : espace acheteur */
+  }
+  return 'mes-commandes.html';
+}

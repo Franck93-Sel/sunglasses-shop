@@ -1,4 +1,4 @@
-import { neon, getUser, signIn, signUp, signOut } from './neon-client.js';
+import { getUser, signIn, signUp, signOut, resolveHome } from './neon-client.js';
 
 const DEMO_PASSWORD = 'aura-demo-2026';
 
@@ -34,16 +34,6 @@ function setMode(next) {
   show('', false);
 }
 
-async function destination() {
-  try {
-    const { data } = await neon.schema('app').rpc('admin_scope');
-    if (data) return 'admin.html';
-  } catch {
-    /* rôle indéterminé : espace acheteur */
-  }
-  return 'mes-commandes.html';
-}
-
 async function login(email, password) {
   show('', false);
   setBusy(true);
@@ -53,7 +43,7 @@ async function login(email, password) {
     show('Email ou mot de passe incorrect.', true);
     return;
   }
-  window.location.href = await destination();
+  window.location.href = await resolveHome();
 }
 
 async function register(email, password, name) {
@@ -69,7 +59,7 @@ async function register(email, password, name) {
   }
   // Pas de session après l'inscription = vérification d'email requise.
   if (await getUser()) {
-    window.location.href = await destination();
+    window.location.href = await resolveHome();
     return;
   }
   setBusy(false);
@@ -105,7 +95,7 @@ document.querySelectorAll('[data-demo]').forEach((btn) => {
 (async () => {
   const user = await getUser();
   if (!user) return;
-  const target = await destination();
+  const target = await resolveHome();
   const card = $('authCard');
   card.replaceChildren();
   const h = document.createElement('h1');

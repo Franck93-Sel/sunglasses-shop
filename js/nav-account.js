@@ -4,16 +4,10 @@ const link = document.getElementById('accountLink');
 
 if (link) {
   import('./neon-client.js')
-    .then(async ({ neon, getUser }) => {
+    .then(async ({ getUser, resolveHome }) => {
       const user = await getUser();
       if (!user) return;
-      let target = 'mes-commandes.html';
-      try {
-        const { data } = await neon.schema('app').rpc('admin_scope');
-        if (data) target = 'admin.html';
-      } catch {
-        /* rôle indéterminé : espace acheteur */
-      }
+      const target = await resolveHome();
       link.setAttribute('href', target);
       link.setAttribute('aria-label', 'Mon espace');
     })
