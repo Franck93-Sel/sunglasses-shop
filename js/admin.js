@@ -63,18 +63,26 @@ function renderRow(order) {
   return row;
 }
 
+const WEBHOOK_TIMEOUT_MS = 15000;
+
+// Renvoie le corps { sent, simulated }, ou null si le webhook a échoué (réseau, HTTP, JSON, délai).
 async function notifyShipped(orderId) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), WEBHOOK_TIMEOUT_MS);
   try {
     const res = await fetch(N8N_ORDER_STATUS_WEBHOOK, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ orderId }),
+      signal: controller.signal,
     });
     if (!res.ok) return null;
     const body = await res.json();
-    return body && body.sent ? body : null;
+    return body && typeof body === 'object' ? body : null;
   } catch {
     return null;
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -104,13 +112,16 @@ async function changeStatus(order, select) {
   let failed = false;
   if (next === 'expediee') {
     const result = await notifyShipped(order.id);
-    if (result) {
-      message = result.simulated
-        ? 'Email « Votre commande est en route » envoyé au client (simulé pour la démo)'
-        : 'Email « Votre commande est en route » envoyé au client';
-    } else {
+    const sentLine = 'Email « Votre commande est en route » envoyé au client';
+    if (!result) {
       message = "Statut mis à jour, l'email n'a pas pu être envoyé";
       failed = true;
+    } else if (result.simulated) {
+      message = `${sentLine} (simulé pour la démo)`;
+    } else if (result.sent) {
+      message = sentLine;
+    } else {
+      message = "Statut mis à jour. L'email avait déjà été envoyé.";
     }
   }
 
@@ -157,7 +168,8 @@ async function init() {
     if (err) throw err;
     $('ordersBody').replaceChildren(...data.map(renderRow));
     await loadKpis();
-  } catch {
+  } catch (e) {
+    console.error(e);
     error.textContent = 'Impossible de charger le back-office pour le moment. Vérifiez votre connexion et réessayez.';
     error.hidden = false;
   }
