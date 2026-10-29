@@ -3,3 +3,7 @@
 .mcp.json
 
 .superpowers/
+
+# Neon / tests
+tests/.env
+node_modules/
