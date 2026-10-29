@@ -7,11 +7,17 @@ const ORIGIN = 'http://localhost:5500';
 
 export async function signedInClient(email, password) {
   const authUrl = process.env.NEON_AUTH_URL;
-  const res = await fetch(`${authUrl}/sign-in/email`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', origin: ORIGIN },
-    body: JSON.stringify({ email, password }),
-  });
+  // Neon Auth limite les connexions (≈3 / 10 s) : on attend et on réessaie sur 429.
+  let res;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    res = await fetch(`${authUrl}/sign-in/email`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', origin: ORIGIN },
+      body: JSON.stringify({ email, password }),
+    });
+    if (res.status !== 429) break;
+    await new Promise((r) => setTimeout(r, 11_000));
+  }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(`signIn ${email}: ${body.message || res.status}`);
