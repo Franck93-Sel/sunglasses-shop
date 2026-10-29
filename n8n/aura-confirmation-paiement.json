@@ -1,0 +1,115 @@
+{
+  "name": "AURA — Confirmation paiement Stripe",
+  "nodes": [
+    {
+      "id": "94a369d6-292f-4100-88fd-cf2dffd0bebf",
+      "name": "Paiement Reçu (Stripe)",
+      "type": "n8n-nodes-base.stripeTrigger",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "parameters": {
+        "events": ["checkout.session.completed"]
+      },
+      "credentials": {
+        "stripeApi": { "id": "4Ig0hk6CZDcHbFQW", "name": "Stripe account" }
+      },
+      "webhookId": "770b8201-054e-450f-99db-8aa99eef9817"
+    },
+    {
+      "id": "6ef8bb04-badb-4def-832c-b15b024afb65",
+      "name": "Extraire Infos Commande",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [540, 300],
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": false,
+        "assignments": {
+          "assignments": [
+            { "id": "a1", "name": "customerEmail", "value": "={{ $json.data.object.customer_details?.email }}", "type": "string" },
+            { "id": "a2", "name": "customerName", "value": "={{ $json.data.object.customer_details?.name ?? \"Client\" }}", "type": "string" },
+            { "id": "a3", "name": "amountTotal", "value": "={{ ($json.data.object.amount_total / 100).toFixed(2) }}", "type": "string" },
+            { "id": "a4", "name": "currency", "value": "={{ ($json.data.object.currency || \"eur\").toUpperCase() }}", "type": "string" },
+            { "id": "a5", "name": "sessionId", "value": "={{ $json.data.object.id }}", "type": "string" }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "e32abbbd-4865-428d-8993-45d08280d84f",
+      "name": "Envoyer Email Confirmation",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [840, 300],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $json.customerEmail }}",
+        "subject": "Confirmation de votre commande AURA",
+        "emailType": "html",
+        "message": "=<div style=\"font-family: Georgia, serif; background:#0a0a0a; color:#ffffff; padding:40px;\"><h1 style=\"color:#cfa15f; font-weight:normal;\">AURA</h1><p>Bonjour {{ $json.customerName }},</p><p>Merci pour votre commande. Votre paiement de <strong>{{ $json.amountTotal }} {{ $json.currency }}</strong> a bien été confirmé.</p><p style=\"color:#a0a0a0; font-size:0.9em;\">Référence de commande : {{ $json.sessionId }}</p><p>Votre monture sera préparée avec le plus grand soin.</p><p style=\"margin-top:40px; color:#a0a0a0;\">— L'équipe AURA</p></div>",
+        "options": { "appendAttribution": false }
+      },
+      "credentials": {
+        "gmailOAuth2": { "id": "Gg4MhaOfLEeJUVcS", "name": "Gmail account" }
+      },
+      "webhookId": "ba203c6a-fc69-4505-87f2-18d1aaa775df"
+    },
+    {
+      "id": "434ced0d-8dd1-4eb9-aacd-234d071c2002",
+      "name": "Récupérer Articles (Stripe)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [540, 100],
+      "onError": "continueErrorOutput",
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.stripe.com/v1/checkout/sessions/{{ $json.data.object.id }}/line_items?limit=100",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "options": {}
+      },
+      "credentials": {
+        "httpBearerAuth": { "id": "C44ly21Yw1BFymeU", "name": "Bearer Auth account" }
+      }
+    },
+    {
+      "id": "ba3c916d-5338-4cbd-b52f-cb7270bf9298",
+      "name": "Enregistrer Commande (Neon)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [840, 100],
+      "onError": "continueErrorOutput",
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "with new_order as (\n  insert into app.orders (email, total, stripe_session_id, is_demo)\n  values ($1, round($2::numeric / 100, 2), $3, false)\n  on conflict (stripe_session_id) do nothing\n  returning id, order_number\n), new_items as (\n  insert into app.order_items (order_id, product_name, unit_price, quantity)\n  select o.id, li.description, round(li.amount_total::numeric / li.quantity / 100, 2), li.quantity\n  from new_order o\n  cross join jsonb_to_recordset($4::jsonb) as li(description text, amount_total bigint, quantity int)\n  returning id\n)\nselect (select id from new_order) as order_id,\n       (select order_number from new_order) as order_number,\n       (select count(*) from new_items)::int as items_inserted",
+        "options": {
+          "queryReplacement": "={{ $('Paiement Reçu (Stripe)').item.json.data.object.customer_details?.email }}, {{ $('Paiement Reçu (Stripe)').item.json.data.object.amount_total }}, {{ $('Paiement Reçu (Stripe)').item.json.data.object.id }}, {{ JSON.stringify($json.data.map(li => ({ description: li.description, amount_total: li.amount_total, quantity: li.quantity }))) }}"
+        }
+      },
+      "credentials": {
+        "postgres": { "id": "V0ZMCCxh2dSUoJN6", "name": "Postgres account" }
+      }
+    }
+  ],
+  "connections": {
+    "Paiement Reçu (Stripe)": {
+      "main": [
+        [
+          { "node": "Extraire Infos Commande", "type": "main", "index": 0 },
+          { "node": "Récupérer Articles (Stripe)", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Extraire Infos Commande": {
+      "main": [[{ "node": "Envoyer Email Confirmation", "type": "main", "index": 0 }]]
+    },
+    "Récupérer Articles (Stripe)": {
+      "main": [[{ "node": "Enregistrer Commande (Neon)", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "active": false,
+  "pinData": {}
+}
