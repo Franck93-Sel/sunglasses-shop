@@ -1,34 +1,29 @@
 # AURA — État du projet
 
-Récapitulatif de session : e-commerce de lunettes de soleil (site statique HTML/CSS/JS) + automatisation paiement via n8n/Stripe.
+E-commerce **fictif** de lunettes de soleil : site statique (HTML/CSS/JS) publié sur GitHub Pages, paiement Stripe en mode test, base Neon (PostgreSQL), automatisations n8n.
 
-**Projet fictif / démo** — publié sur GitHub Pages (`https://franck93-sel.github.io/sunglasses-shop/`) pour être montré, mais reste en mode test/sandbox (Stripe test, n8n de démo) : pas de mise en production réelle (clés live, domaine).
+- Site en ligne : `https://franck93-sel.github.io/sunglasses-shop/`
+- Reste en mode test/sandbox : pas de clés Stripe live ni de domaine personnalisé.
+
+_Dernière mise à jour : 2026-10-30._
 
 ## ✅ Fait
 
-### Site (front)
-- **Images produits** : 6 produits, chacun avec sa propre photo (plus de doublons). `product-5.png` / `product-6.png` ajoutées (femme cat-eye écaille / homme aviator or).
-- **Catégories homme/femme** ajoutées aux produits (`script.js`), filtres Homme/Femme/Tout Voir sur `shop.html` connectés et fonctionnels (y compris via `?category=homme` dans l'URL).
-- **Page d'accueil enrichie** : section "Maison Aura" (histoire/savoir-faire) + bande de réassurance (livraison, retours, fabrication petite série). Le lien de nav "Maison Aura" pointe maintenant vraiment dessus (avant : lien mort vers le footer).
-- **Bug panier corrigé** : le panier était en mémoire JS pure, donc vidé à chaque changement de page → passage à `localStorage` (`saveCart()`), le panier survit maintenant à la navigation shop → checkout.
+### Boutique (front)
+- 6 produits avec chacun sa photo (`img/product-1.png` à `product-6.png`), catégories Homme / Femme, filtres sur `shop.html` (aussi via `?category=homme`).
+- Page d'accueil : section « Maison Aura » + bande de réassurance ; lien de nav « Maison Aura » corrigé.
+- Panier conservé entre les pages (`localStorage`, clé `auraCart`).
+- Pages légales (mentions, CGV, confidentialité) avec bandeau « site de démonstration ».
 
 ### Paiement Stripe via n8n
-- Connexion MCP à l'instance n8n (`https://n8n.212.227.12.49.nip.io`) établie et fonctionnelle.
-- **Workflow n8n "AURA — Créer session Stripe Checkout"** (actif) : reçoit le panier via webhook (`/webhook/aura-checkout`), construit les `line_items` Stripe, crée une session Stripe Checkout (mode test) via l'API Stripe, renvoie l'URL de paiement.
-- **Workflow n8n "AURA — Confirmation paiement Stripe"** (actif) : écoute l'événement `checkout.session.completed` (Stripe Trigger), extrait les infos de commande, envoie un email de confirmation via Gmail.
-- `checkout.html` branché sur le workflow : le bouton "Payer avec Stripe" envoie le panier au webhook n8n et redirige vers la vraie page Stripe Checkout (testé de bout en bout, paiement test réussi).
-- Nouvelle page `checkout-success.html` (vide le panier après retour de paiement réussi).
-- Credentials n8n configurés : Stripe (`stripeApi`), Bearer Auth (pour l'appel HTTP direct à l'API Stripe côté création de session), Gmail (`gmailOAuth2`).
+- **« AURA — Créer session Stripe Checkout »** : webhook `/webhook/aura-checkout` ← panier de `checkout.html` → session Stripe Checkout (test) → redirection vers Stripe. Retour sur `checkout-success.html` (vide le panier).
+- **« AURA — Confirmation paiement Stripe »** (`Bsa9nENq2xyVBJfu`) : sur `checkout.session.completed`, deux branches indépendantes :
+  - email de confirmation Gmail (nom du client échappé contre l'injection HTML) ;
+  - enregistrement en base : relit la session chez Stripe, n'enregistre que si `payment_status = paid`, insert idempotent (un événement rejoué ne crée pas de doublon), alerte Gmail au propriétaire si l'enregistrement échoue.
 
-## ✅ Corrigé
+### Espace client & back-office
+Spec : `docs/superpowers/specs/2026-10-29-espace-client-design.md` — plan (cases cochées) : `docs/superpowers/plans/2026-10-29-espace-client.md`.
 
-- **Email de confirmation** : le credential Gmail avait un token OAuth2 expiré/révoqué (`invalid_grant`). Reconnecté dans n8n (`Credentials` → "Gmail account" → Reconnect). Testé de bout en bout le 2026-08-12 : ajout panier → checkout → paiement Stripe test (carte 4242) → email "Confirmation de votre commande AURA" bien reçu.
-
-## ✅ Espace client & back-office (branche `feature/espace-client`)
-
-Spec : `docs/superpowers/specs/2026-10-29-espace-client-design.md` — plan : `docs/superpowers/plans/2026-10-29-espace-client.md`.
-
-### Architecture
 ```
 Navigateur (pages statiques)
   ├─ Neon Auth ........ connexion / inscription (SDK @neondatabase/neon-js via esm.sh)
@@ -36,38 +31,38 @@ Navigateur (pages statiques)
 Stripe ── checkout.session.completed ──▶ n8n « Confirmation paiement » ──▶ INSERT Neon + email
 admin.html ── après « Expédiée » (JWT admin) ──▶ n8n webhook aura-order-status ──▶ email « en route »
 ```
-Pas de repli via n8n : Neon Auth + Data API suffisent (le JWT donne `auth.user_id()`, l'email est relu dans `neon_auth."user"`).
 
-### Base (Neon, projet `aura`, id `misty-moon-24213768`, schéma `app`)
-- Migrations : `db/migrations/001_orders.sql`, puis `002_drop_demo.sql` (retrait du mode démo, 2026-10-30).
-- `app.orders` (numéro `AUR-xxxx`, email, total, statut `payee` → `expediee` → `livree`, suivi `FR-AURA-xxxxx` généré au passage en « Expédiée », `stripe_session_id` **unique**), `app.order_items`, `app.admins` (`user_id`, scope `all`), vue `app.admin_kpis` (`security_invoker`).
-- Le statut ne peut pas revenir en arrière (trigger). Le navigateur ne peut ni insérer ni supprimer : seul n8n insère (connexion serveur).
-- Après un changement de colonnes (ou si la Data API ne voit plus le schéma `app`) : re-sauvegarder `db_schemas` (console Neon ou MCP `update_data_api`) — sinon la Data API garde l'ancienne liste de colonnes (erreur 42703).
+- **`compte.html`** : connexion / création de compte avec **vérification de l'email par code à 6 chiffres** (envoyé par Neon, valable 5 min, chaque nouvel envoi remplace le précédent ; bouton « Renvoyer le code »). Un compte non vérifié qui se connecte reçoit un code automatiquement. Connexion automatique après validation.
+- **`mes-commandes.html`** (acheteur) : ses commandes avec frise Payée → Expédiée → Livrée, articles et numéro de suivi. Une commande payée sans compte apparaît dès qu'on se connecte avec le même email (vérifié).
+- **`admin.html`** (back-office) : 4 indicateurs (chiffre d'affaires, commandes, à expédier, top produit) + tableau des commandes avec changement de statut. Passage à « Expédiée » → n8n envoie l'email « Votre commande est en route ».
+- Icône compte dans la barre de navigation de toutes les pages (`js/nav-account.js`).
 
-### Rôles (appliqués en RLS, testés dans `tests/rls.test.mjs`)
-- **Acheteur** : lit les commandes dont l'email = l'email **vérifié** de son compte (`app.current_email()`).
-- **Admin** (compte du propriétaire, scope `all`) : lit toutes les commandes et modifie statut + numéro de suivi.
+### Base de données (Neon, projet `aura`, id `misty-moon-24213768`, schéma `app`)
+- Migrations : `db/migrations/001_orders.sql`, puis `002_drop_demo.sql`.
+- `app.orders` : numéro `AUR-xxxx`, email, total, statut `payee` → `expediee` → `livree` (pas de retour en arrière), suivi `FR-AURA-xxxxx` généré au passage en « Expédiée », `stripe_session_id` unique.
+- `app.order_items`, `app.admins` (`user_id`, scope `all`), vue `app.admin_kpis`.
+- **Droits appliqués par la base (RLS)**, testés dans `tests/rls.test.mjs` :
+  - acheteur : lit seulement les commandes dont l'email = l'email **vérifié** de son compte ;
+  - admin (compte du propriétaire) : lit tout, ne modifie que statut + numéro de suivi ;
+  - personne ne peut créer ni supprimer de commande depuis le navigateur (seul n8n insère).
 
-### Mode démo : retiré (2026-10-30)
-Plus de comptes ni de commandes de démo, plus de remise à zéro quotidienne. Un recruteur peut créer un compte acheteur (vérification par code) et passer une commande test (carte 4242) ; l'accès au back-office se donne en ajoutant son `user_id` dans `app.admins`.
+### Workflow « AURA — Statut commande » (`KBlcWdPHE1kPUgyn`)
+Webhook `aura-order-status`, appelé par `admin.html` avec `Authorization: Bearer <JWT Neon>`. n8n fait vérifier le jeton par la Data API (`rpc/admin_scope`) : refus 401 si l'appelant n'est pas admin. Ensuite l'email « en route » ne part que si la commande est `expediee` et que l'email n'a pas déjà été envoyé (garde atomique en base). Réponse `{ sent }`.
 
-### Workflows n8n (exports dans `n8n/`)
-- **Confirmation paiement** (`Bsa9nENq2xyVBJfu`) : relit la session chez Stripe (`GET /v1/checkout/sessions/{id}`), n'enregistre que si `payment_status = paid`, insert idempotent (rejeu Stripe = pas de doublon), alerte Gmail au propriétaire si l'insert échoue.
-- **Statut commande** (`KBlcWdPHE1kPUgyn`, webhook `aura-order-status`) : exige `Authorization: Bearer <JWT Neon>` ; n8n vérifie le jeton en appelant `rpc/admin_scope` sur la Data API (refus 401 si le scope n'est pas `all`), puis envoie l'email « en route » seulement si statut `expediee` et email pas encore envoyé (garde atomique). Renvoie `{sent}`.
-- Credential Postgres n8n : « Postgres account » (`V0ZMCCxh2dSUoJN6`) → **à recréer** à la main si le projet est cloné (chaîne de connexion Neon, SSL), puis relier les nœuds Postgres.
+### Mode démo : retiré le 2026-10-30
+Les comptes `client@` / `admin@aura-demo.fr`, les commandes fictives, le rôle « admin démo » et le workflow de remise à zéro quotidienne ont été supprimés. Pour montrer le back-office à quelqu'un : lui faire créer un compte, puis ajouter son `user_id` dans `app.admins`.
 
 ### Tests
-`npm test` (Node ≥ 20, fichier `tests/.env` non commité : comptes de test et URL Neon).
+`npm test` → 20 tests (droits RLS + mise en forme des commandes). Nécessite `tests/.env` (non commité : URL Neon et comptes de test `rls-*@aura-demo.fr`).
 
-### Vérification d'email (code à 6 chiffres)
-Activée le 2026-10-30 dans la console Neon (Settings → Better Auth : « Verify at Sign-up », méthode **Verification code** ; la méthode « lien » exige un fournisseur SMTP personnalisé). Un compte non vérifié ne peut pas se connecter (`email_not_confirmed`) : `compte.html` affiche alors l'étape « Vérifiez votre email » et envoie un code (expire en 5 min ; chaque nouvel envoi remplace le précédent). Après validation, connexion automatique. Expéditeur : `auth@mail.myneon.app` (fournisseur partagé Neon). La base continue d'exiger un email vérifié pour lier les commandes (`app.current_email()`).
+## ⚠️ À savoir (maintenance)
+- **Gmail** : le credential OAuth de n8n expire régulièrement (`invalid_grant`). Si les emails ne partent plus : n8n → Credentials → « Gmail account » → Reconnect. Choix assumé : on garde le nœud Gmail (pas de SMTP).
+- **Data API Neon** : après un changement de colonnes, re-sauvegarder les schémas exposés (`db_schemas`, console Neon ou MCP `update_data_api`), sinon elle garde l'ancienne liste de colonnes (erreur `42703`).
+- **Credentials n8n à recréer si le projet est cloné** : Postgres « Postgres account » (chaîne de connexion Neon, SSL), Stripe, Bearer Auth (relié **à la main** au nœud « Créer Session Stripe »), Gmail. `.mcp.json` est ignoré par git : à recréer aussi.
 
 ## 🔜 Reste à faire / pistes
-- Sessions avec cookies tiers bloqués (Safari, navigation privée Chrome) : à vérifier sur GitHub Pages.
-- Paiements asynchrones (Klarna, Bancontact…) : `checkout.session.async_payment_succeeded` non géré → ces commandes ne sont pas enregistrées.
-- Le nœud HTTP Request Stripe (création de session) utilise un credential **Bearer Auth** séparé du credential Stripe natif — limitation de l'outil MCP n8n qui ne peut pas lier un credential générique automatiquement. Si ce credential doit être recréé un jour, il faudra relier le nœud "Créer Session Stripe" à la main dans l'éditeur n8n.
-- Pas de page "Accessoires" ni de produits dans cette catégorie malgré le filtre présent sur `shop.html` — filtre fonctionnel mais catalogue vide pour l'instant.
-- `.mcp.json` (config du serveur MCP n8n) est désormais ignoré par git (ajouté au `.gitignore`) — à garder en tête si le projet est cloné ailleurs, il faudra recréer ce fichier et les credentials.
-
-## ⏭️ Non applicable (site fictif, pas de mise en production)
-- Bascule en mode production (clés Stripe live), domaine personnalisé.
+- Tester la connexion sur Safari et en navigation privée depuis GitHub Pages (cookies tiers).
+- Refaire un paiement test depuis le site en ligne, puis l'expédier depuis l'admin en ligne (email « en route » reçu ?).
+- Paiements asynchrones (Klarna, Bancontact…) : `checkout.session.async_payment_succeeded` non géré → ces commandes ne seraient pas enregistrées.
+- Filtre « Accessoires » sur `shop.html` sans produit.
+- Nouvelles automatisations n8n (à définir).

@@ -2,6 +2,13 @@
 
 Date : 2026-10-29
 
+> **Mise à jour 2026-10-30 — livré et en ligne.** Changements par rapport à ce document :
+> - **Mode démo retiré** (objectif 5, comptes de démo, admin démo limité, remise à zéro quotidienne, emails simulés) : supprimé à la demande de l'utilisateur. Un seul rôle admin (scope `all`).
+> - **Vérification de l'email activée** dans Neon Auth (code à 6 chiffres envoyé par Neon ; la méthode « lien » exige un serveur SMTP personnalisé).
+> - **Webhook « statut commande » authentifié** : la page admin envoie son JWT Neon ; n8n le fait vérifier par la Data API (`rpc/admin_scope`) avant d'agir.
+> - Emails : on garde le nœud Gmail de n8n (pas de SMTP).
+> Les sections ci-dessous sont conservées telles que validées le 2026-10-29.
+
 ## Intention
 
 AURA est un e-commerce **fictif** de lunettes de soleil (site statique HTML/CSS/JS + n8n + Stripe en mode test), destiné à être montré à un **recruteur**. Aujourd'hui, une commande passe par Stripe puis n8n envoie un email, mais **rien n'est stocké**.
@@ -94,10 +101,10 @@ Le webhook n8n de changement de statut ne reçoit que l'id de la commande. n8n r
 
 ## Comment on saura que c'est réussi
 
-- Paiement test (carte 4242) sans compte → la commande apparaît en base, l'email de confirmation part comme avant.
-- Inscription avec le même email → la commande s'affiche dans « Mes commandes » avec le statut « Payée ».
-- Connexion admin → la commande apparaît, les KPIs se mettent à jour ; passage à « Expédiée » → l'email « en route » arrive, la frise du client avance.
-- Un acheteur connecté qui tente de lire une autre commande via la Data API ou de changer un statut est refusé par la base.
-- Les deux boutons démo fonctionnent en un clic et montrent des écrans remplis.
-- Connecté en admin de démo, aucune commande réelle n'est visible ni modifiable, y compris en appelant directement la Data API.
-- Tout fonctionne depuis `https://franck93-sel.github.io/sunglasses-shop/`.
+- ✅ Paiement test (carte 4242) sans compte → la commande apparaît en base, l'email de confirmation part comme avant.
+- ✅ Inscription avec le même email → la commande s'affiche dans « Mes commandes » avec le statut « Payée ». *(couvert par les tests RLS)*
+- ✅ Connexion admin → la commande apparaît, les KPIs se mettent à jour ; passage à « Expédiée » → l'email « en route » arrive, la frise du client avance.
+- ✅ Un acheteur connecté qui tente de lire une autre commande via la Data API ou de changer un statut est refusé par la base.
+- ~~Les deux boutons démo fonctionnent en un clic et montrent des écrans remplis.~~ *(mode démo retiré le 2026-10-30)*
+- ~~Connecté en admin de démo, aucune commande réelle n'est visible ni modifiable, y compris en appelant directement la Data API.~~ *(mode démo retiré)*
+- ⚠️ Tout fonctionne depuis `https://franck93-sel.github.io/sunglasses-shop/` — connexion vérifiée en ligne (Chrome) ; Safari / navigation privée et paiement réel depuis le site en ligne restent à tester.
