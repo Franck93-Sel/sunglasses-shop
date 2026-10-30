@@ -1,4 +1,4 @@
-import { getUser, signIn, signUp, signOut, resolveHome } from './neon-client.js';
+import { getUser, signIn, signUp, signOut, resolveHome, sendVerificationCode, verifyEmail } from './neon-client.js';
 
 const DEMO_PASSWORD = 'aura-demo-2026';
 
@@ -7,6 +7,7 @@ const form = $('authForm');
 const message = $('authMessage');
 const submitBtn = $('submitBtn');
 let mode = 'login'; // 'login' | 'signup'
+let pending = null; // { email, password } en attente de vérification de l'email
 
 function show(text, isError) {
   message.textContent = text;
@@ -16,6 +17,8 @@ function show(text, isError) {
 
 function setBusy(busy) {
   submitBtn.disabled = busy;
+  $('verifyBtn').disabled = busy;
+  $('resendBtn').disabled = busy;
   document.querySelectorAll('[data-demo]').forEach((b) => { b.disabled = busy; });
 }
 
@@ -31,16 +34,61 @@ function setMode(next) {
   $('passwordInput').autocomplete = signup ? 'new-password' : 'current-password';
   $('switchText').textContent = signup ? 'Déjà un compte ?' : 'Pas encore de compte ?';
   $('switchBtn').textContent = signup ? 'Se connecter' : 'Créer un compte';
+  form.hidden = false;
+  $('switchRow').hidden = false;
+  $('verifyForm').hidden = true;
+  pending = null;
   show('', false);
+}
+
+// Étape « code reçu par email » (inscription, ou connexion d'un compte pas encore vérifié).
+function showVerify(email, password, text) {
+  pending = { email, password };
+  form.hidden = true;
+  $('switchRow').hidden = true;
+  $('verifyForm').hidden = false;
+  $('authTitle').textContent = 'Vérifiez votre email';
+  $('authIntro').textContent = `Saisissez le code envoyé à ${email}.`;
+  $('codeInput').value = '';
+  $('codeInput').focus();
+  show(text, false);
 }
 
 async function login(email, password) {
   show('', false);
   setBusy(true);
-  const { error } = await signIn(email, password);
+  const { error, code } = await signIn(email, password);
   if (error) {
     setBusy(false);
+    if (code === 'email_not_confirmed' || code === 'EMAIL_NOT_VERIFIED') {
+      const sent = await sendVerificationCode(email);
+      showVerify(email, password, sent.error
+        ? "Votre email n'est pas encore vérifié. Demandez un nouveau code."
+        : "Votre email n'est pas encore vérifié : un code vient de vous être envoyé.");
+      return;
+    }
     show('Email ou mot de passe incorrect.', true);
+    return;
+  }
+  window.location.href = await resolveHome();
+}
+
+async function confirmCode(otp) {
+  show('', false);
+  setBusy(true);
+  const { error, code } = await verifyEmail(pending.email, otp);
+  if (error) {
+    setBusy(false);
+    show(/expir/i.test(`${code} ${error}`)
+      ? 'Ce code a expiré. Demandez-en un nouveau.'
+      : 'Code incorrect. Vérifiez-le et réessayez.', true);
+    return;
+  }
+  // Connexion automatique après vérification ; sinon on se connecte avec le mot de passe saisi.
+  if (!(await getUser()) && (await signIn(pending.email, pending.password)).error) {
+    setBusy(false);
+    setMode('login');
+    show('Email vérifié. Connectez-vous.', false);
     return;
   }
   window.location.href = await resolveHome();
@@ -63,7 +111,7 @@ async function register(email, password, name) {
     return;
   }
   setBusy(false);
-  show('Vérifiez votre boîte mail : un lien de confirmation vient de vous être envoyé.', false);
+  showVerify(email, password, 'Un code de vérification vient de vous être envoyé par email.');
 }
 
 form.addEventListener('submit', (e) => {
@@ -84,6 +132,25 @@ form.addEventListener('submit', (e) => {
     login(email, password);
   }
 });
+
+$('verifyForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const otp = $('codeInput').value.replace(/\s/g, '');
+  if (!/^\d{6}$/.test(otp)) {
+    show('Le code contient 6 chiffres.', true);
+    return;
+  }
+  confirmCode(otp);
+});
+
+$('resendBtn').addEventListener('click', async () => {
+  setBusy(true);
+  const { error } = await sendVerificationCode(pending.email);
+  setBusy(false);
+  show(error ? 'Envoi impossible pour le moment. Réessayez dans un instant.' : 'Nouveau code envoyé.', Boolean(error));
+});
+
+$('backBtn').addEventListener('click', () => setMode('login'));
 
 $('switchBtn').addEventListener('click', () => setMode(mode === 'login' ? 'signup' : 'login'));
 

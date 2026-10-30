@@ -49,9 +49,22 @@
                     <button type="submit" class="btn btn-primary btn-block" id="submitBtn">Se connecter</button>
                 </form>
 
+                <form id="verifyForm" novalidate hidden>
+                    <label class="account-field">
+                        <span>Code reçu par email</span>
+                        <input type="text" id="codeInput" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required>
+                    </label>
+                    <button type="submit" class="btn btn-primary btn-block" id="verifyBtn">Valider</button>
+                    <p class="account-switch">
+                        <button type="button" id="resendBtn">Renvoyer le code</button>
+                        &middot;
+                        <button type="button" id="backBtn">Retour</button>
+                    </p>
+                </form>
+
                 <div class="account-message" id="authMessage" role="status" aria-live="polite" hidden></div>
 
-                <p class="account-switch">
+                <p class="account-switch" id="switchRow">
                     <span id="switchText">Pas encore de compte ?</span>
                     <button type="button" id="switchBtn">Créer un compte</button>
                 </p>

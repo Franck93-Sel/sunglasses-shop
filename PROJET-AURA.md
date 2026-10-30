@@ -63,11 +63,10 @@ Pas de repli via n8n : Neon Auth + Data API suffisent (le JWT donne `auth.user_i
 ### Tests
 `npm test` (Node ≥ 20, fichier `tests/.env` non commité : comptes de test et URL Neon).
 
-### ⚠️ Vérification d'email : désactivée
-Neon Auth a `verify_email_on_sign_up = false` (méthode `otp`). La base exige un email vérifié pour lier les commandes à un compte : un acheteur réel qui s'inscrit **ne voit pas ses commandes** tant que son email n'est pas marqué vérifié. Pour l'activer : console Neon → Auth → Email & password → « Verify email » (méthode **link** = aucun changement d'interface ; **otp** = ajouter une saisie de code sur `compte.html`). Ne pas lever l'exigence côté base : sinon n'importe qui pourrait s'inscrire avec l'email d'un autre et lire ses commandes.
+### Vérification d'email (code à 6 chiffres)
+Activée le 2026-10-30 dans la console Neon (Settings → Better Auth : « Verify at Sign-up », méthode **Verification code** ; la méthode « lien » exige un fournisseur SMTP personnalisé). Un compte non vérifié ne peut pas se connecter (`email_not_confirmed`) : `compte.html` affiche alors l'étape « Vérifiez votre email » et envoie un code (expire en 5 min ; chaque nouvel envoi remplace le précédent). Après validation, connexion automatique. Expéditeur : `auth@mail.myneon.app` (fournisseur partagé Neon). La base continue d'exiger un email vérifié pour lier les commandes (`app.current_email()`).
 
 ## 🔜 Reste à faire / pistes
-- Activer la vérification d'email (voir ci-dessus).
 - Sessions avec cookies tiers bloqués (Safari, navigation privée Chrome) : à vérifier sur GitHub Pages.
 - Paiements asynchrones (Klarna, Bancontact…) : `checkout.session.async_payment_succeeded` non géré → ces commandes ne sont pas enregistrées.
 - Webhook `aura-order-status` non authentifié (effet borné par la garde en base) ; amélioration possible : envoyer le JWT Neon et vérifier `admin_scope` dans n8n.

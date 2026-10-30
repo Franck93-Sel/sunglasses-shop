@@ -10,6 +10,9 @@ function messageOf(error) {
   return (error && (error.message || error.statusText)) || 'Une erreur est survenue.';
 }
 
+// Le SDK renvoie ou lève (AuthApiError) selon les cas : on garde message et code.
+const failure = (error) => ({ error: messageOf(error), code: error && error.code });
+
 export async function getUser() {
   try {
     const { data } = await neon.auth.getSession();
@@ -24,9 +27,28 @@ export async function getUser() {
 export async function signIn(email, password) {
   try {
     const { error } = await neon.auth.signIn.email({ email, password });
+    return error ? failure(error) : {};
+  } catch (e) {
+    return failure(e);
+  }
+}
+
+// Vérification de l'email par code (Neon Auth, méthode « Verification code »).
+export async function sendVerificationCode(email) {
+  try {
+    const { error } = await neon.auth.emailOtp.sendVerificationOtp({ email, type: 'email-verification' });
     return error ? { error: messageOf(error) } : {};
   } catch (e) {
     return { error: messageOf(e) };
+  }
+}
+
+export async function verifyEmail(email, otp) {
+  try {
+    const { error } = await neon.auth.emailOtp.verifyEmail({ email, otp });
+    return error ? failure(error) : {};
+  } catch (e) {
+    return failure(e);
   }
 }
 
