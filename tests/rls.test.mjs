@@ -7,18 +7,16 @@ import { signedInClient } from './helpers/session.mjs';
 
 const SCHEMA = 'app';
 const ORIGIN = 'http://localhost:5500';
-const DEMO_PASSWORD = 'aura-demo-2026';
 const sql = neon(process.env.DATABASE_URL);
 
 const BUYER = 'rls-buyer@aura-demo.fr';
 const STRANGER = 'rls-stranger@aura-demo.fr';
-const DEMO_ADMIN = 'admin@aura-demo.fr';
 const PRIVATE_ADMIN = process.env.RLS_ADMIN_EMAIL; // rôle « admin privé » (scope all) en test
 const ADMIN_PASSWORD = process.env.RLS_ADMIN_PASSWORD; // mot de passe aléatoire de rls-admin
 const USER_PASSWORD = process.env.RLS_USER_PASSWORD; // mot de passe aléatoire de rls-buyer / rls-stranger
 
-const ids = {}; // commandes de test : own, messy, other, delivered, demo
-let buyer, stranger, demoAdmin, privateAdmin;
+const ids = {}; // commandes de test : own, messy, other, delivered
+let buyer, stranger, privateAdmin;
 let privateAdminId; // la ligne admins « all » n'existe que le temps des tests
 
 const findUser = (email) => sql`select id::text as id from neon_auth."user" where email = ${email}`;
@@ -46,10 +44,10 @@ async function ensureAccount(email, password) {
   return { id: row.id, client };
 }
 
-async function insertOrder({ email, total, status = 'payee', isDemo = false, product = 'RLS test item' }) {
+async function insertOrder({ email, total, status = 'payee', product = 'RLS test item' }) {
   const [o] = await sql.query(
-    `insert into ${SCHEMA}.orders (email, total, status, is_demo) values ($1, $2, $3, $4) returning id`,
-    [email, total, status, isDemo],
+    `insert into ${SCHEMA}.orders (email, total, status) values ($1, $2, $3) returning id`,
+    [email, total, status],
   );
   await sql.query(
     `insert into ${SCHEMA}.order_items (order_id, product_name, unit_price, quantity) values ($1, $2, $3, 1)`,
@@ -69,18 +67,9 @@ before(async () => {
   // En série : le helper réessaie si Neon Auth limite le débit (429).
   ({ client: buyer } = await ensureAccount(BUYER, USER_PASSWORD));
   ({ client: stranger } = await ensureAccount(STRANGER, USER_PASSWORD));
-  const demo = await ensureAccount(DEMO_ADMIN, DEMO_PASSWORD);
-  demoAdmin = demo.client;
-  await ensureAccount('client@aura-demo.fr', DEMO_PASSWORD); // compte démo acheteur (Task 3)
   const priv = await ensureAccount(PRIVATE_ADMIN, ADMIN_PASSWORD);
   privateAdmin = priv.client;
 
-  // admin@aura-demo.fr : scope « demo » permanent (utilisé par le site).
-  await sql.query(
-    `insert into ${SCHEMA}.admins (user_id, scope) values ($1, 'demo')
-     on conflict (user_id) do update set scope = excluded.scope`,
-    [demo.id],
-  );
   // rls-admin : scope « all » temporaire, supprimé dans after().
   privateAdminId = priv.id;
   await sql.query(
@@ -93,7 +82,6 @@ before(async () => {
   ids.messy = await insertOrder({ email: '  RLS-Buyer@Aura-Demo.FR ', total: 80 });
   ids.other = await insertOrder({ email: 'rls-test@aura-demo.fr', total: 200 });
   ids.delivered = await insertOrder({ email: 'rls-test@aura-demo.fr', total: 50, status: 'livree' });
-  ids.demo = await insertOrder({ email: 'rls-demo@aura-demo.fr', total: 99, isDemo: true });
 }, { timeout: 180_000 });
 
 after(async () => {
@@ -170,7 +158,6 @@ test('anonymous gets nothing', async () => {
 
 test('admin_scope rpc', async () => {
   assert.equal((await privateAdmin.schema(SCHEMA).rpc('admin_scope')).data, 'all');
-  assert.equal((await demoAdmin.schema(SCHEMA).rpc('admin_scope')).data, 'demo');
   const b = await buyer.schema(SCHEMA).rpc('admin_scope');
   assert.equal(b.error, null);
   assert.equal(b.data, null);
@@ -183,41 +170,10 @@ test('buyer cannot update status', async () => {
   assert.equal((await dbOrder(ids.own)).status, 'payee');
 });
 
-test('demo admin sees only demo orders', async () => {
-  const { data, error } = await orders(demoAdmin).select('id, is_demo');
-  assert.equal(error, null);
-  assert.ok(data.some((o) => String(o.id) === String(ids.demo)));
-  assert.ok(data.every((o) => o.is_demo === true));
-  const kpis = await demoAdmin.schema(SCHEMA).from('admin_kpis').select('*');
-  assert.equal(kpis.error, null);
-  const [count] = await sql.query(`select count(*)::int n from ${SCHEMA}.orders where is_demo`);
-  assert.equal(Number(kpis.data[0].order_count), count.n);
-});
-
-test('demo admin cannot update a real order', async () => {
-  const { data, error } = await orders(demoAdmin).update({ status: 'expediee' }).eq('id', ids.other).select();
-  assert.equal(error, null);
-  assert.equal(data.length, 0);
-  assert.equal((await dbOrder(ids.other)).status, 'payee');
-});
-
-test('demo admin cannot set is_demo or email', async () => {
-  const a = await orders(demoAdmin).update({ is_demo: false }).eq('id', ids.demo);
-  assert.ok(a.error, 'is_demo doit être refusé');
-  assert.equal(a.error.code, '42501');
-  const b = await orders(demoAdmin).update({ email: 'pirate@example.com' }).eq('id', ids.demo);
-  assert.ok(b.error, 'email doit être refusé');
-  assert.equal(b.error.code, '42501');
-  const row = await dbOrder(ids.demo);
-  assert.equal(row.is_demo, true);
-  assert.equal(row.email, 'rls-demo@aura-demo.fr');
-});
-
-test('demo admin can ship a demo order', async () => {
-  const { data, error } = await orders(demoAdmin).update({ status: 'expediee' }).eq('id', ids.demo).select();
-  assert.equal(error, null);
-  assert.equal(data.length, 1);
-  assert.equal(data[0].status, 'expediee');
+test('admin cannot change email', async () => {
+  const { error } = await orders(privateAdmin).update({ email: 'pirate@example.com' }).eq('id', ids.own);
+  assert.equal(error?.code, '42501', 'email non modifiable (droit limité à status, tracking_number)');
+  assert.equal((await dbOrder(ids.own)).email, BUYER);
 });
 
 test('private admin sees all and can ship', async () => {
@@ -240,7 +196,7 @@ test('status cannot go backwards', async () => {
 });
 
 test('nobody can insert from the browser', async () => {
-  for (const client of [buyer, demoAdmin, privateAdmin]) {
+  for (const client of [buyer, privateAdmin]) {
     const { error } = await orders(client).insert({ email: BUYER, total: 1 });
     assert.equal(error?.code, '42501', 'insert orders refusé');
     const items = await client.schema(SCHEMA).from('order_items').insert({ order_id: ids.own, product_name: 'x', unit_price: 1, quantity: 1 });

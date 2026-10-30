@@ -6,7 +6,10 @@
       "name": "Commande expédiée (Webhook)",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
-      "position": [0, 300],
+      "position": [
+        0,
+        300
+      ],
       "webhookId": "5c0e8a5e-3f2b-4b7e-9d64-6a1f0aa1c801",
       "parameters": {
         "httpMethod": "POST",
@@ -23,11 +26,14 @@
       "name": "Valider orderId",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [220, 300],
+      "position": [
+        660,
+        300
+      ],
       "parameters": {
         "mode": "runOnceForAllItems",
         "language": "javaScript",
-        "jsCode": "// orderId doit être un entier strictement positif (nombre ou chaîne de chiffres). Tout le reste est rejeté.\nconst raw = $input.first().json.body?.orderId;\nlet orderId = null;\nif (typeof raw === 'number' && Number.isSafeInteger(raw) && raw > 0) orderId = raw;\nelse if (typeof raw === 'string' && /^[1-9][0-9]{0,14}$/.test(raw)) orderId = Number(raw);\nreturn [{ json: { valid: orderId !== null, orderId } }];"
+        "jsCode": "// orderId doit être un entier strictement positif (nombre ou chaîne de chiffres). Tout le reste est rejeté.\nconst raw = $('Commande expédiée (Webhook)').first().json.body?.orderId;\nlet orderId = null;\nif (typeof raw === 'number' && Number.isSafeInteger(raw) && raw > 0) orderId = raw;\nelse if (typeof raw === 'string' && /^[1-9][0-9]{0,14}$/.test(raw)) orderId = Number(raw);\nreturn [{ json: { valid: orderId !== null, orderId } }];"
       }
     },
     {
@@ -35,16 +41,28 @@
       "name": "orderId valide ?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [440, 300],
+      "position": [
+        880,
+        300
+      ],
       "parameters": {
         "conditions": {
-          "options": { "version": 2, "leftValue": "", "caseSensitive": true, "typeValidation": "strict" },
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
           "conditions": [
             {
               "id": "v1",
               "leftValue": "={{ $json.valid }}",
               "rightValue": "",
-              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
             }
           ],
           "combinator": "and"
@@ -53,84 +71,28 @@
       }
     },
     {
-      "id": "7d1f3c2a-0b1e-4a51-9a10-000000000004",
-      "name": "Lire commande (Neon)",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.6,
-      "position": [660, 200],
-      "alwaysOutputData": true,
-      "onError": "continueErrorOutput",
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "select status, is_demo, (shipped_email_sent_at is not null) as email_sent\nfrom app.orders\nwhere id = $1",
-        "options": { "queryReplacement": "={{ $json.orderId }}" }
-      },
-      "credentials": {
-        "postgres": { "id": "V0ZMCCxh2dSUoJN6", "name": "Postgres account" }
-      }
-    },
-    {
-      "id": "7d1f3c2a-0b1e-4a51-9a10-000000000005",
-      "name": "Aiguillage",
-      "type": "n8n-nodes-base.switch",
-      "typeVersion": 3.2,
-      "position": [880, 180],
-      "parameters": {
-        "mode": "rules",
-        "rules": {
-          "values": [
-            {
-              "conditions": {
-                "options": { "version": 2, "leftValue": "", "caseSensitive": true, "typeValidation": "loose" },
-                "conditions": [
-                  {
-                    "id": "s1",
-                    "leftValue": "={{ $json.status === 'expediee' && $json.is_demo === true }}",
-                    "rightValue": "",
-                    "operator": { "type": "boolean", "operation": "true", "singleValue": true }
-                  }
-                ],
-                "combinator": "and"
-              },
-              "renameOutput": true,
-              "outputKey": "Démo"
-            },
-            {
-              "conditions": {
-                "options": { "version": 2, "leftValue": "", "caseSensitive": true, "typeValidation": "loose" },
-                "conditions": [
-                  {
-                    "id": "s2",
-                    "leftValue": "={{ $json.status === 'expediee' && $json.is_demo === false && $json.email_sent === false }}",
-                    "rightValue": "",
-                    "operator": { "type": "boolean", "operation": "true", "singleValue": true }
-                  }
-                ],
-                "combinator": "and"
-              },
-              "renameOutput": true,
-              "outputKey": "À notifier"
-            }
-          ]
-        },
-        "options": { "fallbackOutput": "extra", "renameFallbackOutput": "Rien à envoyer" }
-      }
-    },
-    {
       "id": "7d1f3c2a-0b1e-4a51-9a10-000000000006",
       "name": "Marquer email envoyé (Neon)",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [1100, 180],
+      "position": [
+        1100,
+        180
+      ],
       "alwaysOutputData": true,
       "onError": "continueErrorOutput",
       "parameters": {
         "operation": "executeQuery",
-        "query": "-- Garde atomique : seule cette requête décide si un email part (R9).\nwith upd as (\n  update app.orders\n     set shipped_email_sent_at = now()\n   where id = $1\n     and status = 'expediee'\n     and not is_demo\n     and shipped_email_sent_at is null\n  returning id, order_number, email, total, tracking_number, shipped_email_sent_at::text as sent_at\n)\nselect u.id, u.order_number, u.email, u.total, u.tracking_number, u.sent_at,\n       coalesce((select json_agg(json_build_object('name', i.product_name, 'qty', i.quantity, 'price', i.unit_price) order by i.id)\n                   from app.order_items i where i.order_id = u.id), '[]'::json) as items\nfrom upd u",
-        "options": { "queryReplacement": "={{ $('Valider orderId').first().json.orderId }}" }
+        "query": "-- Garde atomique : seule cette requête décide si un email part (R9) ; appelant déjà vérifié admin « all ».\nwith upd as (\n  update app.orders\n     set shipped_email_sent_at = now()\n   where id = $1\n     and status = 'expediee'\n     and shipped_email_sent_at is null\n  returning id, order_number, email, total, tracking_number, shipped_email_sent_at::text as sent_at\n)\nselect u.id, u.order_number, u.email, u.total, u.tracking_number, u.sent_at,\n       coalesce((select json_agg(json_build_object('name', i.product_name, 'qty', i.quantity, 'price', i.unit_price) order by i.id)\n                   from app.order_items i where i.order_id = u.id), '[]'::json) as items\nfrom upd u",
+        "options": {
+          "queryReplacement": "={{ $('Valider orderId').first().json.orderId }}"
+        }
       },
       "credentials": {
-        "postgres": { "id": "V0ZMCCxh2dSUoJN6", "name": "Postgres account" }
+        "postgres": {
+          "id": "V0ZMCCxh2dSUoJN6",
+          "name": "Postgres account"
+        }
       }
     },
     {
@@ -138,7 +100,10 @@
       "name": "Préparer email",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1320, 180],
+      "position": [
+        1320,
+        180
+      ],
       "parameters": {
         "mode": "runOnceForAllItems",
         "language": "javaScript",
@@ -150,16 +115,28 @@
       "name": "Email à envoyer ?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [1540, 180],
+      "position": [
+        1540,
+        180
+      ],
       "parameters": {
         "conditions": {
-          "options": { "version": 2, "leftValue": "", "caseSensitive": true, "typeValidation": "strict" },
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
           "conditions": [
             {
               "id": "f1",
               "leftValue": "={{ $json.found }}",
               "rightValue": "",
-              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
             }
           ],
           "combinator": "and"
@@ -172,7 +149,10 @@
       "name": "Envoyer Email Expédition",
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.2,
-      "position": [1760, 80],
+      "position": [
+        1760,
+        80
+      ],
       "webhookId": "3e9b6f0c-8a4d-4f0e-b2c1-5d7a9e2f4c10",
       "onError": "continueErrorOutput",
       "parameters": {
@@ -182,10 +162,15 @@
         "subject": "Votre commande AURA est en route",
         "emailType": "html",
         "message": "={{ $json.html }}",
-        "options": { "appendAttribution": false }
+        "options": {
+          "appendAttribution": false
+        }
       },
       "credentials": {
-        "gmailOAuth2": { "id": "Gg4MhaOfLEeJUVcS", "name": "Gmail account" }
+        "gmailOAuth2": {
+          "id": "Gg4MhaOfLEeJUVcS",
+          "name": "Gmail account"
+        }
       }
     },
     {
@@ -193,16 +178,24 @@
       "name": "Annuler marquage (Neon)",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "position": [1980, 200],
+      "position": [
+        1980,
+        200
+      ],
       "alwaysOutputData": true,
       "onError": "continueRegularOutput",
       "parameters": {
         "operation": "executeQuery",
         "query": "-- L'email n'est pas parti : on libère le marqueur (seulement s'il est toujours le nôtre) pour permettre un nouvel essai.\nupdate app.orders\n   set shipped_email_sent_at = null\n where id = $1\n   and shipped_email_sent_at = $2::timestamptz",
-        "options": { "queryReplacement": "={{ $('Préparer email').first().json.orderId }}, {{ $('Préparer email').first().json.sentAt }}" }
+        "options": {
+          "queryReplacement": "={{ $('Préparer email').first().json.orderId }}, {{ $('Préparer email').first().json.sentAt }}"
+        }
       },
       "credentials": {
-        "postgres": { "id": "V0ZMCCxh2dSUoJN6", "name": "Postgres account" }
+        "postgres": {
+          "id": "V0ZMCCxh2dSUoJN6",
+          "name": "Postgres account"
+        }
       }
     },
     {
@@ -210,23 +203,16 @@
       "name": "Répondre envoyé",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
-      "position": [1980, 0],
+      "position": [
+        1980,
+        0
+      ],
       "parameters": {
         "respondWith": "json",
-        "responseBody": "{\"sent\": true, \"simulated\": false}",
-        "options": { "responseCode": 200 }
-      }
-    },
-    {
-      "id": "7d1f3c2a-0b1e-4a51-9a10-00000000000c",
-      "name": "Répondre simulé",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.5,
-      "position": [1100, 0],
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "{\"sent\": false, \"simulated\": true}",
-        "options": { "responseCode": 200 }
+        "responseBody": "{\"sent\": true}",
+        "options": {
+          "responseCode": 200
+        }
       }
     },
     {
@@ -234,11 +220,16 @@
       "name": "Répondre non envoyé",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
-      "position": [1760, 460],
+      "position": [
+        1760,
+        460
+      ],
       "parameters": {
         "respondWith": "json",
-        "responseBody": "{\"sent\": false, \"simulated\": false}",
-        "options": { "responseCode": 200 }
+        "responseBody": "{\"sent\": false}",
+        "options": {
+          "responseCode": 200
+        }
       }
     },
     {
@@ -246,66 +237,265 @@
       "name": "Répondre échec email",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
-      "position": [2200, 200],
+      "position": [
+        2200,
+        200
+      ],
       "parameters": {
         "respondWith": "json",
-        "responseBody": "{\"sent\": false, \"simulated\": false}",
-        "options": { "responseCode": 502 }
+        "responseBody": "{\"sent\": false}",
+        "options": {
+          "responseCode": 502
+        }
+      }
+    },
+    {
+      "id": "5d4124d9-70eb-4b43-91d7-e1e6eabdf964",
+      "name": "Vérifier admin (Neon)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        300
+      ],
+      "onError": "continueErrorOutput",
+      "parameters": {
+        "method": "POST",
+        "url": "https://ep-mute-waterfall-barpds0t.apirest.c-8.eu-central-1.aws.neon.tech/neondb/rest/v1/rpc/admin_scope",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ $json.headers.authorization || '' }}"
+            },
+            {
+              "name": "Content-Profile",
+              "value": "app"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          },
+          "timeout": 10000
+        }
+      }
+    },
+    {
+      "id": "dead7c36-226b-40d5-ba10-48b1234a98df",
+      "name": "Admin ?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        440,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "a1",
+              "leftValue": "={{ String($json.data ?? '').replace(/\"/g, '').trim() }}",
+              "rightValue": "all",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "473bd8a1-a660-403f-87c1-4b70430032f2",
+      "name": "Répondre refusé",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        660,
+        500
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"sent\": false}",
+        "options": {
+          "responseCode": 401
+        }
       }
     }
   ],
   "connections": {
     "Commande expédiée (Webhook)": {
-      "main": [[{ "node": "Valider orderId", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Vérifier admin (Neon)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vérifier admin (Neon)": {
+      "main": [
+        [
+          {
+            "node": "Admin ?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Répondre refusé",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Admin ?": {
+      "main": [
+        [
+          {
+            "node": "Valider orderId",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Répondre refusé",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Valider orderId": {
-      "main": [[{ "node": "orderId valide ?", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "orderId valide ?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "orderId valide ?": {
       "main": [
-        [{ "node": "Lire commande (Neon)", "type": "main", "index": 0 }],
-        [{ "node": "Répondre non envoyé", "type": "main", "index": 0 }]
-      ]
-    },
-    "Lire commande (Neon)": {
-      "main": [
-        [{ "node": "Aiguillage", "type": "main", "index": 0 }],
-        [{ "node": "Répondre non envoyé", "type": "main", "index": 0 }]
-      ]
-    },
-    "Aiguillage": {
-      "main": [
-        [{ "node": "Répondre simulé", "type": "main", "index": 0 }],
-        [{ "node": "Marquer email envoyé (Neon)", "type": "main", "index": 0 }],
-        [{ "node": "Répondre non envoyé", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Marquer email envoyé (Neon)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Répondre non envoyé",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Marquer email envoyé (Neon)": {
       "main": [
-        [{ "node": "Préparer email", "type": "main", "index": 0 }],
-        [{ "node": "Répondre non envoyé", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Préparer email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Répondre non envoyé",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Préparer email": {
-      "main": [[{ "node": "Email à envoyer ?", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Email à envoyer ?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Email à envoyer ?": {
       "main": [
-        [{ "node": "Envoyer Email Expédition", "type": "main", "index": 0 }],
-        [{ "node": "Répondre non envoyé", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Envoyer Email Expédition",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Répondre non envoyé",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Envoyer Email Expédition": {
       "main": [
-        [{ "node": "Répondre envoyé", "type": "main", "index": 0 }],
-        [{ "node": "Annuler marquage (Neon)", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Répondre envoyé",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Annuler marquage (Neon)",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Annuler marquage (Neon)": {
-      "main": [[{ "node": "Répondre échec email", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Répondre échec email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
-  "settings": { "executionOrder": "v1" },
+  "settings": {
+    "executionOrder": "v1"
+  },
   "active": true,
   "pinData": {}
 }

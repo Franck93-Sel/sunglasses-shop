@@ -24,6 +24,16 @@ export async function getUser() {
   }
 }
 
+// JWT de la session, comme le SDK pour la Data API (vérifié côté n8n) ; null si non connecté.
+export async function getAccessToken() {
+  try {
+    const { data } = await neon.auth.getSession();
+    return (data && data.session && data.session.token) || null;
+  } catch {
+    return null;
+  }
+}
+
 export async function signIn(email, password) {
   try {
     const { error } = await neon.auth.signIn.email({ email, password });

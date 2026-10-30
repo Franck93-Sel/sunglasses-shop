@@ -1,4 +1,4 @@
-import { neon, requireUser, signOut } from './neon-client.js';
+import { neon, requireUser, signOut, getAccessToken } from './neon-client.js';
 import { N8N_ORDER_STATUS_WEBHOOK } from './config.js';
 import { STATUS_LABELS, formatPrice, formatDate } from './orders-format.js';
 
@@ -70,9 +70,11 @@ async function notifyShipped(orderId) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), WEBHOOK_TIMEOUT_MS);
   try {
+    const token = await getAccessToken();
+    if (!token) return null;
     const res = await fetch(N8N_ORDER_STATUS_WEBHOOK, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ orderId }),
       signal: controller.signal,
     });
@@ -112,14 +114,11 @@ async function changeStatus(order, select) {
   let failed = false;
   if (next === 'expediee') {
     const result = await notifyShipped(order.id);
-    const sentLine = 'Email « Votre commande est en route » envoyé au client';
     if (!result) {
       message = "Statut mis à jour, l'email n'a pas pu être envoyé";
       failed = true;
-    } else if (result.simulated) {
-      message = `${sentLine} (simulé pour la démo)`;
     } else if (result.sent) {
-      message = sentLine;
+      message = 'Email « Votre commande est en route » envoyé au client';
     } else {
       message = "Statut mis à jour. L'email avait déjà été envoyé.";
     }
@@ -158,7 +157,6 @@ async function init() {
       window.location.href = 'mes-commandes.html';
       return;
     }
-    if (scope === 'demo') $('demoBanner').hidden = false;
 
     const { data, error: err } = await neon
       .schema('app')

@@ -836,10 +836,8 @@ button {
 }
 
 .account-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 24px;
-    align-items: start;
+    max-width: 420px;
+    margin: 0 auto;
 }
 
 .account-card {
@@ -931,54 +929,7 @@ button {
     color: #f0a5a0;
 }
 
-.account-demo {
-    border-style: dashed;
-    border-color: var(--color-accent);
-}
-
-.demo-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-    background: var(--color-bg-tertiary);
-    border-radius: 8px;
-    padding: 12px;
-    margin-top: 12px;
-}
-
-.demo-row > div {
-    min-width: 0;
-}
-
-.demo-row code {
-    display: block;
-    font-size: 0.78rem;
-    color: var(--color-text-secondary);
-    overflow-wrap: anywhere;
-}
-
-.demo-row .btn {
-    margin-top: 0;
-    padding: 8px 16px;
-    font-size: 0.8rem;
-    flex-shrink: 0;
-}
-
-.demo-password {
-    margin-top: 14px;
-    font-size: 0.85rem;
-    color: var(--color-text-secondary);
-}
-
-.demo-password code {
-    color: var(--color-text-primary);
-}
-
 @media (max-width: 760px) {
-    .account-grid {
-        grid-template-columns: 1fr;
-    }
     .account-container {
         margin-top: 110px;
     }
@@ -1128,19 +1079,6 @@ button {
    ========================================================================= */
 .admin-container {
     max-width: 1000px;
-}
-
-.admin-demo {
-    margin-top: 12px;
-    padding: 8px 14px;
-    border: 1px dashed var(--color-accent);
-    border-radius: 6px;
-    font-size: 0.85rem;
-    color: var(--color-accent);
-}
-
-.admin-demo[hidden] {
-    display: none;
 }
 
 .kpis {

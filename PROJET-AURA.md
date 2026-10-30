@@ -34,30 +34,26 @@ Navigateur (pages statiques)
   ├─ Neon Auth ........ connexion / inscription (SDK @neondatabase/neon-js via esm.sh)
   └─ Neon Data API .... lecture des commandes, changement de statut (JWT + RLS)
 Stripe ── checkout.session.completed ──▶ n8n « Confirmation paiement » ──▶ INSERT Neon + email
-admin.html ── après « Expédiée » ──▶ n8n webhook aura-order-status ──▶ email « en route »
-n8n planifié (04:00) ──▶ app.reset_demo()
+admin.html ── après « Expédiée » (JWT admin) ──▶ n8n webhook aura-order-status ──▶ email « en route »
 ```
 Pas de repli via n8n : Neon Auth + Data API suffisent (le JWT donne `auth.user_id()`, l'email est relu dans `neon_auth."user"`).
 
 ### Base (Neon, projet `aura`, id `misty-moon-24213768`, schéma `app`)
-- Migration : `db/migrations/001_orders.sql` ; données de démo : `db/seed-demo.sql`.
-- `app.orders` (numéro `AUR-xxxx`, email, total, statut `payee` → `expediee` → `livree`, suivi `FR-AURA-xxxxx` généré au passage en « Expédiée », `stripe_session_id` **unique**, `is_demo`), `app.order_items`, `app.admins` (`user_id`, scope `all` | `demo`), vue `app.admin_kpis` (`security_invoker`).
+- Migrations : `db/migrations/001_orders.sql`, puis `002_drop_demo.sql` (retrait du mode démo, 2026-10-30).
+- `app.orders` (numéro `AUR-xxxx`, email, total, statut `payee` → `expediee` → `livree`, suivi `FR-AURA-xxxxx` généré au passage en « Expédiée », `stripe_session_id` **unique**), `app.order_items`, `app.admins` (`user_id`, scope `all`), vue `app.admin_kpis` (`security_invoker`).
 - Le statut ne peut pas revenir en arrière (trigger). Le navigateur ne peut ni insérer ni supprimer : seul n8n insère (connexion serveur).
-- Si la Data API ne voit plus le schéma `app` après une recréation : re-sauvegarder `db_schemas` dans la console Neon.
+- Après un changement de colonnes (ou si la Data API ne voit plus le schéma `app`) : re-sauvegarder `db_schemas` (console Neon ou MCP `update_data_api`) — sinon la Data API garde l'ancienne liste de colonnes (erreur 42703).
 
 ### Rôles (appliqués en RLS, testés dans `tests/rls.test.mjs`)
 - **Acheteur** : lit les commandes dont l'email = l'email **vérifié** de son compte (`app.current_email()`).
-- **Admin privé** (compte du propriétaire, scope `all`) : lit et modifie toutes les commandes.
-- **Admin démo** (scope `demo`) : mêmes droits, uniquement sur `is_demo = true` ; ses KPIs ne comptent que celles-ci.
+- **Admin** (compte du propriétaire, scope `all`) : lit toutes les commandes et modifie statut + numéro de suivi.
 
-### Comptes de démo (boutons sur `compte.html`)
-- `client@aura-demo.fr` et `admin@aura-demo.fr`, mot de passe public `aura-demo-2026`.
-- Les commandes de démo n'envoient pas de vrai email (`simulated: true`, message « simulé pour la démo »).
+### Mode démo : retiré (2026-10-30)
+Plus de comptes ni de commandes de démo, plus de remise à zéro quotidienne. Un recruteur peut créer un compte acheteur (vérification par code) et passer une commande test (carte 4242) ; l'accès au back-office se donne en ajoutant son `user_id` dans `app.admins`.
 
 ### Workflows n8n (exports dans `n8n/`)
 - **Confirmation paiement** (`Bsa9nENq2xyVBJfu`) : relit la session chez Stripe (`GET /v1/checkout/sessions/{id}`), n'enregistre que si `payment_status = paid`, insert idempotent (rejeu Stripe = pas de doublon), alerte Gmail au propriétaire si l'insert échoue.
-- **Statut commande** (`KBlcWdPHE1kPUgyn`, webhook `aura-order-status`) : reçoit `{orderId}`, envoie l'email « en route » seulement si statut `expediee` et email pas encore envoyé (garde atomique), renvoie `{sent, simulated}`.
-- **Reset démo** (`K1iRgKyoIGZRc0pv`) : chaque jour à 04:00, `app.reset_demo()` (ne touche que les lignes `is_demo`).
+- **Statut commande** (`KBlcWdPHE1kPUgyn`, webhook `aura-order-status`) : exige `Authorization: Bearer <JWT Neon>` ; n8n vérifie le jeton en appelant `rpc/admin_scope` sur la Data API (refus 401 si le scope n'est pas `all`), puis envoie l'email « en route » seulement si statut `expediee` et email pas encore envoyé (garde atomique). Renvoie `{sent}`.
 - Credential Postgres n8n : « Postgres account » (`V0ZMCCxh2dSUoJN6`) → **à recréer** à la main si le projet est cloné (chaîne de connexion Neon, SSL), puis relier les nœuds Postgres.
 
 ### Tests
@@ -69,7 +65,6 @@ Activée le 2026-10-30 dans la console Neon (Settings → Better Auth : « Verif
 ## 🔜 Reste à faire / pistes
 - Sessions avec cookies tiers bloqués (Safari, navigation privée Chrome) : à vérifier sur GitHub Pages.
 - Paiements asynchrones (Klarna, Bancontact…) : `checkout.session.async_payment_succeeded` non géré → ces commandes ne sont pas enregistrées.
-- Webhook `aura-order-status` non authentifié (effet borné par la garde en base) ; amélioration possible : envoyer le JWT Neon et vérifier `admin_scope` dans n8n.
 - Le nœud HTTP Request Stripe (création de session) utilise un credential **Bearer Auth** séparé du credential Stripe natif — limitation de l'outil MCP n8n qui ne peut pas lier un credential générique automatiquement. Si ce credential doit être recréé un jour, il faudra relier le nœud "Créer Session Stripe" à la main dans l'éditeur n8n.
 - Pas de page "Accessoires" ni de produits dans cette catégorie malgré le filtre présent sur `shop.html` — filtre fonctionnel mais catalogue vide pour l'instant.
 - `.mcp.json` (config du serveur MCP n8n) est désormais ignoré par git (ajouté au `.gitignore`) — à garder en tête si le projet est cloné ailleurs, il faudra recréer ce fichier et les credentials.

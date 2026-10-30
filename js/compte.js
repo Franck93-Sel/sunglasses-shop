@@ -1,7 +1,5 @@
 import { getUser, signIn, signUp, signOut, resolveHome, sendVerificationCode, verifyEmail } from './neon-client.js';
 
-const DEMO_PASSWORD = 'aura-demo-2026';
-
 const $ = (id) => document.getElementById(id);
 const form = $('authForm');
 const message = $('authMessage');
@@ -19,7 +17,6 @@ function setBusy(busy) {
   submitBtn.disabled = busy;
   $('verifyBtn').disabled = busy;
   $('resendBtn').disabled = busy;
-  document.querySelectorAll('[data-demo]').forEach((b) => { b.disabled = busy; });
 }
 
 function setMode(next) {
@@ -153,10 +150,6 @@ $('resendBtn').addEventListener('click', async () => {
 $('backBtn').addEventListener('click', () => setMode('login'));
 
 $('switchBtn').addEventListener('click', () => setMode(mode === 'login' ? 'signup' : 'login'));
-
-document.querySelectorAll('[data-demo]').forEach((btn) => {
-  btn.addEventListener('click', () => login(btn.dataset.demo, DEMO_PASSWORD));
-});
 
 // Déjà connecté : proposer d'y retourner ou de se déconnecter.
 (async () => {
