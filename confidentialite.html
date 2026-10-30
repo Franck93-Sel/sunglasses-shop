@@ -46,7 +46,7 @@
         <h1>Politique de Confidentialité</h1>
 
         <div class="info-disclaimer">
-            <strong>Site de démonstration.</strong> Cette politique est un exemple rédigé à but pédagogique/portfolio, inspiré du RGPD. Le Site ne collecte aucune donnée à des fins commerciales réelles ; les informations saisies (formulaire de contact, checkout) restent locales à votre navigateur ou transitent uniquement vers les services de démonstration (Stripe test, n8n).
+            <strong>Site de démonstration.</strong> Cette politique est un exemple rédigé à but pédagogique/portfolio, inspiré du RGPD. Le Site ne collecte aucune donnée à des fins commerciales réelles ; les informations saisies (formulaire de contact, checkout) restent locales à votre navigateur ou transitent uniquement vers les services de démonstration (Stripe test, n8n, base de données Neon).
         </div>
 
         <div class="info-section">
@@ -55,6 +55,7 @@
             <ul>
                 <li><strong>Panier :</strong> stocké uniquement dans le <code>localStorage</code> de votre navigateur (jamais envoyé à un serveur tant que vous ne validez pas la commande).</li>
                 <li><strong>Formulaire de commande :</strong> nom, email, adresse postale — transmis au module de paiement de test Stripe via un workflow n8n de démonstration, pour illustrer l'envoi d'un email de confirmation.</li>
+                <li><strong>Compte client :</strong> email, nom et mot de passe (géré par Neon Auth), ainsi que l'historique de vos commandes (produits, montant, statut, numéro de suivi fictif), stockés dans une base de données Neon (PostgreSQL, hébergée dans l'Union européenne). Une commande passée sans compte est enregistrée avec son email et apparaît dans votre espace si vous créez un compte avec la même adresse.</li>
                 <li><strong>Formulaire de contact :</strong> nom, email, message — traité côté client uniquement dans cette démonstration, sans envoi réel.</li>
             </ul>
         </div>
@@ -78,12 +79,12 @@
 
         <div class="info-section">
             <h2>4. Durée de conservation</h2>
-            <p>Les données stockées localement (panier, préférence cookies) restent dans votre navigateur jusqu'à ce que vous les supprimiez manuellement ou videz le cache de votre navigateur. Aucune donnée n'est conservée sur un serveur de production.</p>
+            <p>Les données stockées localement (panier, préférence cookies) restent dans votre navigateur jusqu'à ce que vous les supprimiez manuellement ou videz le cache de votre navigateur. Les comptes et commandes enregistrés chez Neon sont conservés le temps de la démonstration ; les données des comptes de démo sont remises à zéro chaque jour.</p>
         </div>
 
         <div class="info-section">
             <h2>5. Vos droits</h2>
-            <p>Conformément au RGPD, vous disposeriez, sur un site réel, d'un droit d'accès, de rectification, d'effacement et d'opposition sur vos données. Sur ce projet de démonstration, il suffit de vider le <code>localStorage</code> de votre navigateur pour supprimer toutes les données stockées, ou de nous contacter via le <a href="contact.html">formulaire de contact</a>.</p>
+            <p>Conformément au RGPD, vous disposeriez, sur un site réel, d'un droit d'accès, de rectification, d'effacement et d'opposition sur vos données. Sur ce projet de démonstration, il suffit de vider le <code>localStorage</code> de votre navigateur pour supprimer les données locales ; pour supprimer votre compte et vos commandes, contactez-nous via le <a href="contact.html">formulaire de contact</a>.</p>
         </div>
     </main>
 
