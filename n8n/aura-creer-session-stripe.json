@@ -19,15 +19,52 @@
       "webhookId": "3a1a3d20-b053-4e88-b68d-e43b50623330"
     },
     {
+      "id": "21d39059-6680-4911-99b3-d6c659880a32",
+      "name": "Valider Panier",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        304
+      ],
       "parameters": {
-        "jsCode": "// Les prix viennent UNIQUEMENT de ce catalogue : le navigateur n'envoie que l'id et la quantitÃ©.\n// Doit rester alignÃ© avec la liste `products` de script.js.\nconst CATALOG = {\n  1: { name: \"L'Ombre\", price: 350 },\n  2: { name: 'Ã‰clipse', price: 420 },\n  3: { name: 'Soleil Noir', price: 380 },\n  4: { name: 'Horizon', price: 290 },\n  5: { name: 'Mirage', price: 450 },\n  6: { name: 'ZÃ©nith', price: 520 },\n};\nconst MAX_QUANTITY = 10;\nconst SITE = 'https://franck93-sel.github.io/sunglasses-shop/';\n// Retours Stripe autorisÃ©s : le site en ligne et le dÃ©veloppement local.\nconst ALLOWED_RETURN = /^(https:\\/\\/franck93-sel\\.github\\.io\\/sunglasses-shop\\/|http:\\/\\/(localhost|127\\.0\\.0\\.1)(:\\d+)?\\/)/;\n\nconst input = $input.first().json;\nconst body = input.body || input;\nconst items = Array.isArray(body.items) ? body.items : [];\n\nif (items.length === 0 || items.length > 20) {\n  throw new Error('Panier vide ou invalide.');\n}\n\n// Anciens paniers (avant l'envoi de l'id) : on retrouve le produit par son nom, jamais par son prix.\nfunction findProduct(item) {\n  const byId = CATALOG[Number(item.id)];\n  if (byId) return byId;\n  return Object.values(CATALOG).find((p) => p.name === item.name);\n}\n\nconst params = [];\nfunction addParam(key, value) {\n  params.push(encodeURIComponent(key) + '=' + encodeURIComponent(value));\n}\n\nitems.forEach((item, idx) => {\n  const product = findProduct(item);\n  if (!product) throw new Error('Produit inconnu dans le panier.');\n  const quantity = item.quantity === undefined ? 1 : Number(item.quantity);\n  if (!Number.isInteger(quantity) || quantity < 1 || quantity > MAX_QUANTITY) {\n    throw new Error('QuantitÃ© invalide dans le panier.');\n  }\n  addParam(`line_items[${idx}][price_data][currency]`, 'eur');\n  addParam(`line_items[${idx}][price_data][unit_amount]`, product.price * 100);\n  addParam(`line_items[${idx}][price_data][product_data][name]`, product.name);\n  addParam(`line_items[${idx}][quantity]`, quantity);\n});\n\nfunction returnUrl(url, fallback) {\n  return typeof url === 'string' && ALLOWED_RETURN.test(url) ? url : fallback;\n}\n\naddParam('mode', 'payment');\naddParam('success_url', returnUrl(body.successUrl, SITE + 'checkout-success.html'));\naddParam('cancel_url', returnUrl(body.cancelUrl, SITE + 'checkout.html'));\n\nif (typeof body.email === 'string' && /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(body.email.trim())) {\n  addParam('customer_email', body.email.trim());\n}\n\nreturn [{ json: { bodyString: params.join('&') } }];\n"
+        "jsCode": "// Le navigateur n'envoie que l'id et la quantitÃ© : ici on vÃ©rifie la forme du panier,\n// les noms et prix viennent ensuite de la table app.products (nÅ“ud suivant).\nconst MAX_QUANTITY = 10;\nconst SITE = 'https://franck93-sel.github.io/sunglasses-shop/';\n// Retours Stripe autorisÃ©s : le site en ligne et le dÃ©veloppement local.\nconst ALLOWED_RETURN = /^(https:\\/\\/franck93-sel\\.github\\.io\\/sunglasses-shop\\/|http:\\/\\/(localhost|127\\.0\\.0\\.1)(:\\d+)?\\/)/;\n\nconst input = $input.first().json;\nconst body = input.body || input;\nconst raw = Array.isArray(body.items) ? body.items : [];\n\nif (raw.length === 0 || raw.length > 20) {\n  throw new Error('Panier vide ou invalide.');\n}\n\nconst items = raw.map((item) => {\n  const id = Number(item.id);\n  const quantity = item.quantity === undefined ? 1 : Number(item.quantity);\n  if (!Number.isInteger(id) || id < 1) throw new Error('Produit inconnu dans le panier.');\n  if (!Number.isInteger(quantity) || quantity < 1 || quantity > MAX_QUANTITY) {\n    throw new Error('QuantitÃ© invalide dans le panier.');\n  }\n  return { id, quantity };\n});\n\nfunction returnUrl(url, fallback) {\n  return typeof url === 'string' && ALLOWED_RETURN.test(url) ? url : fallback;\n}\nconst email = typeof body.email === 'string' ? body.email.trim() : '';\n\nreturn [{\n  json: {\n    items,\n    productIds: [...new Set(items.map((i) => i.id))],\n    successUrl: returnUrl(body.successUrl, SITE + 'checkout-success.html'),\n    cancelUrl: returnUrl(body.cancelUrl, SITE + 'checkout.html'),\n    email: /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email) ? email : '',\n  },\n}];\n"
+      }
+    },
+    {
+      "id": "c462db31-167f-42dd-a886-193ec70b8b98",
+      "name": "Lire Prix (Neon)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        680,
+        304
+      ],
+      "alwaysOutputData": true,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Prix et noms font foi ici (table app.products) ; produits dÃ©sactivÃ©s exclus.\nselect id, name, price\n  from app.products\n where active\n   and id in (select jsonb_array_elements_text($1::jsonb)::int)",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify($json.productIds) }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "V0ZMCCxh2dSUoJN6",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Noms et prix : uniquement ceux de la base (produits actifs), jamais ceux du navigateur.\nconst cart = $('Valider Panier').first().json;\nconst catalog = new Map(\n  $input.all()\n    .map((i) => i.json)\n    .filter((row) => row.id !== undefined && row.id !== null)\n    .map((row) => [Number(row.id), row])\n);\n\nconst params = [];\nfunction addParam(key, value) {\n  params.push(encodeURIComponent(key) + '=' + encodeURIComponent(value));\n}\n\ncart.items.forEach((item, idx) => {\n  const product = catalog.get(item.id);\n  if (!product) throw new Error('Produit inconnu ou indisponible dans le panier.');\n  addParam(`line_items[${idx}][price_data][currency]`, 'eur');\n  addParam(`line_items[${idx}][price_data][unit_amount]`, Math.round(Number(product.price) * 100));\n  addParam(`line_items[${idx}][price_data][product_data][name]`, product.name);\n  addParam(`line_items[${idx}][quantity]`, item.quantity);\n});\n\naddParam('mode', 'payment');\naddParam('success_url', cart.successUrl);\naddParam('cancel_url', cart.cancelUrl);\nif (cart.email) addParam('customer_email', cart.email);\n\nreturn [{ json: { bodyString: params.join('&') } }];\n"
       },
       "id": "97effd50-1954-4c89-9d3a-b9ec8ddaaf91",
       "name": "Construire RequÃªte Stripe",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        544,
+        900,
         304
       ]
     },
@@ -48,7 +85,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        848,
+        1120,
         304
       ],
       "credentials": {
@@ -73,13 +110,35 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        1152,
+        1340,
         304
       ]
     }
   ],
   "connections": {
     "RÃ©ception Panier": {
+      "main": [
+        [
+          {
+            "node": "Valider Panier",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valider Panier": {
+      "main": [
+        [
+          {
+            "node": "Lire Prix (Neon)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lire Prix (Neon)": {
       "main": [
         [
           {

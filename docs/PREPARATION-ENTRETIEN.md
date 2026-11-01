@@ -47,14 +47,14 @@ Ce qu'il faut faire passer : **un vrai parcours complet**, du clic « Payer » j
 
 ### 3.2 Le paiement : Stripe + n8n
 1. Sur `checkout.html`, le bouton « Payer » envoie le panier en **JSON** à un **webhook** n8n (`/webhook/aura-checkout`). Il n'envoie **que l'identifiant des produits et la quantité, jamais le prix**.
-2. Le workflow n8n **« Créer session Stripe Checkout »** retrouve chaque produit dans **son propre catalogue** (nom et prix), refuse un produit inconnu ou une quantité invalide, puis demande à Stripe une page de paiement et renvoie son adresse.
+2. Le workflow n8n **« Créer session Stripe Checkout »** vérifie le panier, lit le nom et le prix de chaque produit **dans la table `products` de la base**, refuse un produit inconnu, désactivé ou une quantité invalide, puis demande à Stripe une page de paiement et renvoie son adresse.
 3. Le navigateur est redirigé vers Stripe. On paie avec une carte de test (`4242 4242 4242 4242`).
 4. Stripe renvoie vers `checkout-success.html`, qui vide le panier.
 
 **Pourquoi passer par n8n ?** Pour créer une session Stripe, il faut la **clé secrète** Stripe. Elle ne doit jamais être dans le navigateur, où n'importe qui peut lire le code. n8n la garde côté serveur.
 
 **Pourquoi le prix est fixé par n8n et pas par le navigateur ?** Tout ce qui vient du navigateur peut être modifié par l'utilisateur (outils de développement, requête faite à la main). Au début, le prix venait du navigateur. Je l'ai corrigé, puis testé : une requête qui annonce « L'Ombre à 0,50 € » crée quand même un paiement de 350 € chez Stripe. Les adresses de retour après paiement sont aussi limitées à mon site, pour qu'on ne puisse pas rediriger un client vers un autre site.
-*Contrepartie :* la liste des produits existe à deux endroits (`script.js` pour l'affichage, le workflow n8n pour les prix). Si j'ajoute un produit, il faut l'ajouter aux deux. L'étape suivante serait une table `products` en base, lue par les deux.
+**Une seule source de vérité :** les produits sont dans la table `app.products`. La boutique les affiche depuis la base, et n8n y lit les prix. Si je change un prix dans la base, l'affichage et le paiement suivent ensemble. J'ai vérifié en passant Horizon à 291 € : Stripe a demandé 291 €. *Histoire à raconter :* au départ, la liste des produits était écrite en dur dans `script.js` (données fictives de la première version), et le prix était envoyé par le navigateur. En ajoutant le vrai paiement, j'ai repéré la faille, corrigé, puis déplacé le catalogue en base.
 
 ### 3.3 Après le paiement : workflow « Confirmation paiement »
 Il démarre quand Stripe envoie l'événement `checkout.session.completed`. Deux branches indépendantes :
@@ -73,6 +73,7 @@ Tables dans le schéma `app` :
 | `orders` | une commande : numéro `AUR-1001`…, email, total, statut, numéro de suivi, dates, `stripe_session_id` |
 | `order_items` | les lignes d'une commande : produit, prix unitaire, quantité (liée à `orders` par une **clé étrangère**) |
 | `admins` | qui est administrateur (mon compte) |
+| `products` | le catalogue : nom, prix, catégorie, image, `active` (un produit désactivé disparaît de la boutique et ne peut plus être payé) |
 | `admin_kpis` | une **vue** qui calcule le chiffre d'affaires, le nombre de commandes, les commandes à expédier et le produit le plus vendu |
 
 Règles écrites **dans la base** (fichier `db/migrations/001_orders.sql`) :
@@ -88,7 +89,7 @@ Règles écrites **dans la base** (fichier `db/migrations/001_orders.sql`) :
   - un acheteur ne voit que les commandes dont l'email = **son email vérifié** ;
   - l'admin voit tout, mais ne peut modifier que le statut et le numéro de suivi ;
   - **personne ne peut créer ni supprimer** une commande depuis le navigateur. Seul n8n insère, avec sa propre connexion serveur ;
-  - sans être connecté, on ne voit rien.
+  - sans être connecté, on ne voit aucune commande. Un visiteur reçoit un **jeton anonyme** de Neon Auth qui lui permet seulement de lire les produits actifs.
 
 **Pourquoi c'est important :** même si quelqu'un modifie le JavaScript de la page ou appelle l'API à la main, la base refuse. La sécurité ne dépend pas du front-end.
 
@@ -140,7 +141,7 @@ Quand l'admin passe une commande à « Expédiée », `admin.html` appelle le we
 2. **Spécification écrite** : `docs/superpowers/specs/2026-10-29-espace-client-design.md` décrit le besoin, les règles et ce qui est hors sujet.
 3. **Plan découpé en tâches** : `docs/superpowers/plans/2026-10-29-espace-client.md`, avec des cases à cocher et pour chaque tâche les fichiers concernés et les tests attendus.
 4. **Réalisation tâche par tâche**, chaque tâche **relue** (revue de code) avant de passer à la suivante, avec un commit par étape. L'historique `git log` montre la progression.
-5. **Tests automatiques** (`npm test`, 20 tests) qui vérifient surtout les règles de sécurité de la base.
+5. **Tests automatiques** (`npm test`, 24 tests) qui vérifient surtout les règles de sécurité de la base.
 6. **Vérification réelle** : paiements test, emails reçus, essais dans le navigateur.
 
 **Ce que je peux dire :** « L'IA a écrit une grande partie du code, mais j'ai fait les choix d'architecture et de sécurité. J'ai relu, testé et validé chaque étape, et je sais expliquer chaque brique. Quand quelque chose ne marchait pas, on a cherché la cause ensemble au lieu de corriger au hasard. »
@@ -151,7 +152,7 @@ Quand l'admin passe une commande à « Expédiée », `admin.html` appelle le we
 
 ## 6. Les tests
 
-- `npm test` lance `node --test` sur deux fichiers :
+- `npm test` lance `node --test` sur deux fichiers (24 tests) :
   - `tests/orders-format.test.mjs` : mise en forme (prix en euros, dates, frise des statuts) ;
   - `tests/rls.test.mjs` : **les règles de sécurité contre la vraie base**, avec des comptes de test. Par exemple : « un inconnu ne voit rien », « un email non vérifié ne voit rien », « l'acheteur ne peut pas changer un statut », « un statut ne peut pas revenir en arrière », « personne ne peut insérer ni supprimer depuis le navigateur ».
 - **Pourquoi tester la RLS ?** C'est la partie où une erreur serait grave : un client verrait les commandes des autres. Un test le prouve à chaque fois.
@@ -162,7 +163,7 @@ Quand l'admin passe une commande à « Expédiée », `admin.html` appelle le we
 ## 7. Limites connues et améliorations possibles
 
 Les citer toi-même montre du recul.
-- **Catalogue en double** : les produits sont dans `script.js` (affichage) et dans le workflow n8n (prix). À terme : une table `products` en base, ou les *Prices* Stripe.
+- **Gestion du catalogue** : pour changer un prix ou ajouter un produit, je passe par la console Neon. Il n'y a pas encore d'écran dans le back-office pour ça.
 - **Paiements asynchrones** (Klarna, virement…) : l'événement `async_payment_succeeded` n'est pas géré.
 - **Gmail OAuth expire** régulièrement. En production, je passerais par un service d'emailing transactionnel (Brevo, Resend…).
 - **n8n sur un VPS avec une adresse `nip.io`** : pratique pour un projet, mais en vrai il faudrait un nom de domaine, des sauvegardes et de la supervision.
@@ -210,10 +211,13 @@ R : *Clé étrangère* : `order_items.order_id` doit pointer vers une commande q
 R : `git push` sur la branche `main`. GitHub Pages republie automatiquement. Je travaille sur une branche (`feature/espace-client`) et je fusionne quand c'est testé.
 
 **Q : Un client peut-il modifier le prix avant de payer ?**
-R : Non. Le navigateur n'envoie que l'identifiant du produit et la quantité. C'est n8n qui fixe le prix à partir de son catalogue. Je l'ai vérifié en envoyant exprès un faux prix : Stripe a quand même reçu le vrai montant. C'est la règle de base : ne jamais faire confiance à ce qui vient du navigateur.
+R : Non. Le navigateur n'envoie que l'identifiant du produit et la quantité. C'est n8n qui lit le prix dans la base. Je l'ai vérifié en envoyant exprès un faux prix : Stripe a quand même reçu le vrai montant. C'est la règle de base : ne jamais faire confiance à ce qui vient du navigateur.
 
 **Q : Qu'est-ce que tu améliorerais en premier ?**
-R : Mettre le catalogue produits en base (une seule source pour l'affichage et les prix), gérer les paiements asynchrones, et remplacer Gmail par un service d'emails transactionnels.
+R : Un écran de gestion des produits dans le back-office, gérer les paiements asynchrones, et remplacer Gmail par un service d'emails transactionnels.
+
+**Q : Comment un visiteur non connecté peut-il lire les produits si la base exige un jeton ?**
+R : Neon Auth délivre un **jeton anonyme** (rôle `anonymous`). En base, ce rôle a seulement le droit de lire les produits actifs (`grant select` + une règle RLS). Il ne peut rien lire d'autre et rien modifier. C'est testé.
 
 **Q : Quelle a été la plus grosse difficulté ?**
 R : Exemples réels : rendre la sécurité indépendante du navigateur (RLS + vérification de l'admin dans n8n) ; le cache de la Data API Neon après un changement de colonnes (erreur `42703`, il faut ré-enregistrer les schémas) ; le jeton Gmail qui expire.
@@ -251,7 +255,7 @@ R : Exemples réels : rendre la sécurité indépendante du navigateur (RLS + v�
 | Je veux montrer… | Fichier |
 |---|---|
 | L'état du projet | `PROJET-AURA.md` |
-| La structure de la base et les règles de sécurité | `db/migrations/001_orders.sql`, `002_drop_demo.sql` |
+| La structure de la base et les règles de sécurité | `db/migrations/001_orders.sql`, `002_drop_demo.sql`, `003_products.sql` |
 | La connexion et l'appel à la base depuis le site | `js/neon-client.js` |
 | Le back-office | `admin.html`, `js/admin.js` |
 | Le formulaire de contact | `contact.html`, `js/contact.js` |

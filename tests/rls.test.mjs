@@ -211,3 +211,56 @@ test('nobody can delete from the browser', async () => {
   assert.equal(error?.code, '42501', 'delete refusé');
   assert.ok(await dbOrder(ids.own));
 });
+
+// Catalogue produits (migration 003) : lecture publique via un jeton anonyme, aucune écriture.
+async function anonymousToken() {
+  const res = await fetch(`${process.env.NEON_AUTH_URL}/token/anonymous`, { headers: { origin: ORIGIN } });
+  assert.equal(res.status, 200, 'jeton anonyme');
+  return (await res.json()).token;
+}
+
+const asAnonymous = (token, path, init = {}) =>
+  fetch(`${process.env.NEON_DATA_API_URL}/${path}`, {
+    ...init,
+    headers: { 'accept-profile': SCHEMA, 'content-profile': SCHEMA, authorization: `Bearer ${token}`, 'content-type': 'application/json', ...init.headers },
+  });
+
+test('visitor can read active products', async () => {
+  const res = await asAnonymous(await anonymousToken(), 'products?select=id,name,price&order=sort_order');
+  assert.equal(res.status, 200);
+  const rows = await res.json();
+  assert.ok(rows.length >= 1, 'au moins un produit');
+  assert.deepEqual(Object.keys(rows[0]).sort(), ['id', 'name', 'price']);
+});
+
+test('visitor cannot read orders', async () => {
+  const res = await asAnonymous(await anonymousToken(), 'orders?select=id');
+  assert.equal(res.status, 403);
+});
+
+test('inactive products are hidden', async () => {
+  await sql.query(`insert into ${SCHEMA}.products (id, name, price, category, image, active) values (9001, 'RLS hidden', 1, 'homme', 'x.png', false)`);
+  try {
+    const res = await asAnonymous(await anonymousToken(), 'products?select=id&id=eq.9001');
+    assert.deepEqual(await res.json(), []);
+    const { data } = await buyer.schema(SCHEMA).from('products').select('id').eq('id', 9001);
+    assert.deepEqual(data, []);
+  } finally {
+    await sql.query(`delete from ${SCHEMA}.products where id = 9001`);
+  }
+});
+
+test('nobody can change products from the browser', async () => {
+  const [before] = await sql.query(`select price from ${SCHEMA}.products where id = 1`);
+  const token = await anonymousToken();
+  const ins = await asAnonymous(token, 'products', { method: 'POST', body: JSON.stringify({ id: 9002, name: 'x', price: 1, category: 'homme', image: 'x' }) });
+  assert.equal(ins.status, 403, 'insert anonyme refusé');
+  const upd = await asAnonymous(token, 'products?id=eq.1', { method: 'PATCH', body: JSON.stringify({ price: 1 }) });
+  assert.equal(upd.status, 403, 'update anonyme refusé');
+  for (const client of [buyer, privateAdmin]) {
+    assert.equal((await client.schema(SCHEMA).from('products').update({ price: 1 }).eq('id', 1)).error?.code, '42501', 'update refusé');
+    assert.equal((await client.schema(SCHEMA).from('products').delete().eq('id', 1)).error?.code, '42501', 'delete refusé');
+  }
+  const [after] = await sql.query(`select price from ${SCHEMA}.products where id = 1`);
+  assert.equal(after.price, before.price);
+});

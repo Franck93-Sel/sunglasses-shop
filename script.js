@@ -1,56 +1,27 @@
 // =========================================================================
-// Mock Data: Products
+// Products (catalogue en base : table app.products, lue via la Data API Neon)
 // =========================================================================
-const products = [
-    {
-        id: 1,
-        name: "L'Ombre",
-        brand: "AURA",
-        price: 350,
-        category: "homme",
-        image: "img/product-1.png"
-    },
-    {
-        id: 2,
-        name: "Éclipse",
-        brand: "AURA",
-        price: 420,
-        category: "femme",
-        image: "img/product-2.png"
-    },
-    {
-        id: 3,
-        name: "Soleil Noir",
-        brand: "AURA",
-        price: 380,
-        category: "homme",
-        image: "img/product-3.png"
-    },
-    {
-        id: 4,
-        name: "Horizon",
-        brand: "AURA",
-        price: 290,
-        category: "femme",
-        image: "img/product-4.png"
-    },
-    {
-        id: 5,
-        name: "Mirage",
-        brand: "AURA",
-        price: 450,
-        category: "homme",
-        image: "img/product-6.png"
-    },
-    {
-        id: 6,
-        name: "Zénith",
-        brand: "AURA",
-        price: 520,
-        category: "femme",
-        image: "img/product-5.png"
-    }
-];
+let products = [];
+let productsStatus = 'loading'; // 'loading' | 'ready' | 'error'
+
+// Un visiteur n'est pas connecté : Neon Auth délivre un jeton « anonymous »,
+// qui ne donne le droit de lire que les produits actifs (RLS).
+async function loadProducts() {
+    const { NEON_AUTH_URL, NEON_DATA_API_URL } = await import('./js/config.js');
+    const tokenRes = await fetch(`${NEON_AUTH_URL}/token/anonymous`);
+    if (!tokenRes.ok) throw new Error(`token anonyme : HTTP ${tokenRes.status}`);
+    const { token } = await tokenRes.json();
+    const res = await fetch(
+        `${NEON_DATA_API_URL}/products?select=id,name,brand,price,category,image&order=sort_order`,
+        { headers: { 'Accept-Profile': 'app', Authorization: `Bearer ${token}` } }
+    );
+    if (!res.ok) throw new Error(`produits : HTTP ${res.status}`);
+    return (await res.json()).map(p => ({ ...p, price: Number(p.price) }));
+}
+
+function escapeHtml(text) {
+    return String(text).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
 
 // =========================================================================
 // State: Cart
@@ -84,6 +55,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const initialCategory = urlParams.get('category') || 'all';
         renderProducts(initialCategory);
         setupFilterButtons(initialCategory);
+        loadProducts()
+            .then(list => { products = list; productsStatus = 'ready'; })
+            .catch(err => { console.error('Chargement du catalogue échoué :', err); productsStatus = 'error'; })
+            .finally(() => renderProducts(currentCategory));
     }
     setupEventListeners();
     setupCookieBanner();
@@ -169,8 +144,20 @@ function setupEventListeners() {
 // =========================================================================
 // Product Rendering
 // =========================================================================
+let currentCategory = 'all';
+
 function renderProducts(category = 'all') {
+    currentCategory = category;
     productGrid.innerHTML = '';
+
+    if (productsStatus === 'loading') {
+        productGrid.innerHTML = '<p class="empty-state">Chargement de la collection…</p>';
+        return;
+    }
+    if (productsStatus === 'error') {
+        productGrid.innerHTML = '<p class="empty-state">Collection momentanément indisponible. Merci de réessayer dans un instant.</p>';
+        return;
+    }
 
     const visibleProducts = category === 'all'
         ? products
@@ -186,14 +173,14 @@ function renderProducts(category = 'all') {
         card.className = 'product-card';
         card.innerHTML = `
             <div class="product-image-container">
-                <img src="${product.image}" alt="${product.name}" class="product-image">
+                <img src="${escapeHtml(product.image)}" alt="${escapeHtml(product.name)}" class="product-image">
                 <div class="product-overlay">
                     <button class="btn btn-primary" onclick="addToCart(${product.id})">Ajouter au panier</button>
                 </div>
             </div>
             <div class="product-info">
-                <p class="product-brand">${product.brand}</p>
-                <h3 class="product-name">${product.name}</h3>
+                <p class="product-brand">${escapeHtml(product.brand)}</p>
+                <h3 class="product-name">${escapeHtml(product.name)}</h3>
                 <p class="product-price">${product.price} €</p>
             </div>
         `;
