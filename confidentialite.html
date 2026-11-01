@@ -46,7 +46,7 @@
         <h1>Politique de Confidentialité</h1>
 
         <div class="info-disclaimer">
-            <strong>Site de démonstration.</strong> Cette politique est un exemple rédigé à but pédagogique/portfolio, inspiré du RGPD. Le Site ne collecte aucune donnée à des fins commerciales réelles ; les informations saisies (formulaire de contact, checkout) restent locales à votre navigateur ou transitent uniquement vers les services de démonstration (Stripe test, n8n, base de données Neon).
+            <strong>Site de démonstration.</strong> Cette politique est un exemple rédigé à but pédagogique/portfolio, inspiré du RGPD. Le Site ne collecte aucune donnée à des fins commerciales réelles ; les informations saisies (formulaire de contact, checkout) restent locales à votre navigateur ou transitent uniquement vers les services de démonstration (Stripe test, n8n, base de données Neon, Web3Forms).
         </div>
 
         <div class="info-section">
@@ -56,7 +56,7 @@
                 <li><strong>Panier :</strong> stocké uniquement dans le <code>localStorage</code> de votre navigateur (jamais envoyé à un serveur tant que vous ne validez pas la commande).</li>
                 <li><strong>Formulaire de commande :</strong> nom, email, adresse postale — transmis au module de paiement de test Stripe via un workflow n8n de démonstration, pour illustrer l'envoi d'un email de confirmation.</li>
                 <li><strong>Compte client :</strong> email, nom et mot de passe (géré par Neon Auth), ainsi que l'historique de vos commandes (produits, montant, statut, numéro de suivi fictif), stockés dans une base de données Neon (PostgreSQL, hébergée dans l'Union européenne). Une commande passée sans compte est enregistrée avec son email et apparaît dans votre espace si vous créez un compte avec la même adresse.</li>
-                <li><strong>Formulaire de contact :</strong> nom, email, message — traité côté client uniquement dans cette démonstration, sans envoi réel.</li>
+                <li><strong>Formulaire de contact :</strong> nom, email, sujet et message — transmis au service Web3Forms, qui les envoie par email au propriétaire du Site pour qu'il puisse vous répondre. Ils ne sont pas enregistrés dans la base de données du Site.</li>
             </ul>
         </div>
 
