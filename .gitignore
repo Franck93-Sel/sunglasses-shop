@@ -7,3 +7,6 @@
 # Neon / tests
 tests/.env
 node_modules/
+
+# Notes personnelles (préparation entretien) : jamais publiées
+prive/
