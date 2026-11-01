@@ -1,4 +1,4 @@
-import { neon, requireUser, signOut } from './neon-client.js';
+import { neon, requireUser, signOut, isAdmin } from './neon-client.js';
 import { STATUS_LABELS, timeline, formatPrice, formatDate } from './orders-format.js';
 
 const $ = (id) => document.getElementById(id);
@@ -72,6 +72,11 @@ async function init() {
   $('signOutBtn').addEventListener('click', async () => {
     await signOut();
     window.location.href = 'compte.html';
+  });
+  // Un admin arrivé ici (redirection ou lien direct) garde un accès au back-office.
+  isAdmin().then((admin) => {
+    $('adminLink').hidden = !admin;
+    $('adminLinkSep').hidden = !admin;
   });
 
   const count = $('ordersCount');

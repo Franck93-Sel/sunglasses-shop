@@ -89,12 +89,21 @@ export async function requireUser(redirectTo = 'compte.html') {
 }
 
 // Page d'accueil de l'espace connecté : back-office pour un admin, sinon commandes.
-export async function resolveHome() {
-  try {
-    const { data } = await neon.schema('app').rpc('admin_scope');
-    if (data) return 'admin.html';
-  } catch {
-    /* rôle indéterminé : espace acheteur */
+// Une erreur (jeton pas encore pris en compte juste après la connexion, base qui se réveille)
+// ne vaut pas « pas admin » : on réessaie avant de conclure.
+export async function isAdmin(attempts = 3) {
+  for (let i = 0; i < attempts; i += 1) {
+    try {
+      const { data, error } = await neon.schema('app').rpc('admin_scope');
+      if (!error) return Boolean(data);
+    } catch {
+      /* nouvel essai */
+    }
+    if (i < attempts - 1) await new Promise((resolve) => setTimeout(resolve, 600 * (i + 1)));
   }
-  return 'mes-commandes.html';
+  return false; // rôle toujours indéterminé : espace acheteur
+}
+
+export async function resolveHome() {
+  return (await isAdmin()) ? 'admin.html' : 'mes-commandes.html';
 }
