@@ -1,0 +1,123 @@
+{
+  "name": "AURA â€” CrÃ©er session Stripe Checkout",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "aura-checkout",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "62f7b893-4d5d-4191-afa3-c9aa23e225de",
+      "name": "RÃ©ception Panier",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        240,
+        304
+      ],
+      "webhookId": "3a1a3d20-b053-4e88-b68d-e43b50623330"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Les prix viennent UNIQUEMENT de ce catalogue : le navigateur n'envoie que l'id et la quantitÃ©.\n// Doit rester alignÃ© avec la liste `products` de script.js.\nconst CATALOG = {\n  1: { name: \"L'Ombre\", price: 350 },\n  2: { name: 'Ã‰clipse', price: 420 },\n  3: { name: 'Soleil Noir', price: 380 },\n  4: { name: 'Horizon', price: 290 },\n  5: { name: 'Mirage', price: 450 },\n  6: { name: 'ZÃ©nith', price: 520 },\n};\nconst MAX_QUANTITY = 10;\nconst SITE = 'https://franck93-sel.github.io/sunglasses-shop/';\n// Retours Stripe autorisÃ©s : le site en ligne et le dÃ©veloppement local.\nconst ALLOWED_RETURN = /^(https:\\/\\/franck93-sel\\.github\\.io\\/sunglasses-shop\\/|http:\\/\\/(localhost|127\\.0\\.0\\.1)(:\\d+)?\\/)/;\n\nconst input = $input.first().json;\nconst body = input.body || input;\nconst items = Array.isArray(body.items) ? body.items : [];\n\nif (items.length === 0 || items.length > 20) {\n  throw new Error('Panier vide ou invalide.');\n}\n\n// Anciens paniers (avant l'envoi de l'id) : on retrouve le produit par son nom, jamais par son prix.\nfunction findProduct(item) {\n  const byId = CATALOG[Number(item.id)];\n  if (byId) return byId;\n  return Object.values(CATALOG).find((p) => p.name === item.name);\n}\n\nconst params = [];\nfunction addParam(key, value) {\n  params.push(encodeURIComponent(key) + '=' + encodeURIComponent(value));\n}\n\nitems.forEach((item, idx) => {\n  const product = findProduct(item);\n  if (!product) throw new Error('Produit inconnu dans le panier.');\n  const quantity = item.quantity === undefined ? 1 : Number(item.quantity);\n  if (!Number.isInteger(quantity) || quantity < 1 || quantity > MAX_QUANTITY) {\n    throw new Error('QuantitÃ© invalide dans le panier.');\n  }\n  addParam(`line_items[${idx}][price_data][currency]`, 'eur');\n  addParam(`line_items[${idx}][price_data][unit_amount]`, product.price * 100);\n  addParam(`line_items[${idx}][price_data][product_data][name]`, product.name);\n  addParam(`line_items[${idx}][quantity]`, quantity);\n});\n\nfunction returnUrl(url, fallback) {\n  return typeof url === 'string' && ALLOWED_RETURN.test(url) ? url : fallback;\n}\n\naddParam('mode', 'payment');\naddParam('success_url', returnUrl(body.successUrl, SITE + 'checkout-success.html'));\naddParam('cancel_url', returnUrl(body.cancelUrl, SITE + 'checkout.html'));\n\nif (typeof body.email === 'string' && /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(body.email.trim())) {\n  addParam('customer_email', body.email.trim());\n}\n\nreturn [{ json: { bodyString: params.join('&') } }];\n"
+      },
+      "id": "97effd50-1954-4c89-9d3a-b9ec8ddaaf91",
+      "name": "Construire RequÃªte Stripe",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        544,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.stripe.com/v1/checkout/sessions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/x-www-form-urlencoded",
+        "body": "={{ $json.bodyString }}",
+        "options": {}
+      },
+      "id": "ba78e6b7-856e-4318-a3dc-1de00a0a6492",
+      "name": "CrÃ©er Session Stripe",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        848,
+        304
+      ],
+      "credentials": {
+        "stripeApi": {
+          "id": "4Ig0hk6CZDcHbFQW",
+          "name": "Stripe account"
+        },
+        "httpBearerAuth": {
+          "id": "C44ly21Yw1BFymeU",
+          "name": "Bearer Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"checkoutUrl\": $json.url, \"sessionId\": $json.id } }}",
+        "options": {}
+      },
+      "id": "2a0880fd-6305-4603-9757-de8069287d2e",
+      "name": "RÃ©pondre avec URL Paiement",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1152,
+        304
+      ]
+    }
+  ],
+  "connections": {
+    "RÃ©ception Panier": {
+      "main": [
+        [
+          {
+            "node": "Construire RequÃªte Stripe",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Construire RequÃªte Stripe": {
+      "main": [
+        [
+          {
+            "node": "CrÃ©er Session Stripe",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CrÃ©er Session Stripe": {
+      "main": [
+        [
+          {
+            "node": "RÃ©pondre avec URL Paiement",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "binaryMode": "separate"
+  },
+  "active": true,
+  "pinData": {}
+}

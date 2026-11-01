@@ -144,7 +144,8 @@
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            items: cart.map(item => ({ name: item.name, price: item.price, quantity: 1 })),
+                            // Uniquement l'id et la quantité : le prix est fixé par n8n à partir de son catalogue.
+                            items: cart.map(item => ({ id: item.id, quantity: 1 })),
                             email: document.getElementById('email').value,
                             successUrl: window.location.origin + window.location.pathname.replace('checkout.html', 'checkout-success.html'),
                             cancelUrl: window.location.href

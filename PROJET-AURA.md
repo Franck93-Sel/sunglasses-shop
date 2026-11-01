@@ -5,7 +5,7 @@ E-commerce **fictif** de lunettes de soleil : site statique (HTML/CSS/JS) publi�
 - Site en ligne : `https://franck93-sel.github.io/sunglasses-shop/`
 - Reste en mode test/sandbox : pas de clés Stripe live ni de domaine personnalisé.
 
-_Dernière mise à jour : 2026-10-30._
+_Dernière mise à jour : 2026-11-01._
 
 ## ✅ Fait
 
@@ -16,7 +16,7 @@ _Dernière mise à jour : 2026-10-30._
 - Pages légales (mentions, CGV, confidentialité) avec bandeau « site de démonstration ».
 
 ### Paiement Stripe via n8n
-- **« AURA — Créer session Stripe Checkout »** : webhook `/webhook/aura-checkout` ← panier de `checkout.html` → session Stripe Checkout (test) → redirection vers Stripe. Retour sur `checkout-success.html` (vide le panier).
+- **« AURA — Créer session Stripe Checkout »** (`SvSQbihZ2NYiNtBH`, export `n8n/aura-creer-session-stripe.json`) : webhook `/webhook/aura-checkout` ← panier de `checkout.html` (**id + quantité seulement**) → le nœud Code fixe nom et prix depuis son catalogue (aligné sur `products` de `script.js` : **à mettre à jour aux deux endroits**), refuse produit inconnu / quantité hors 1–10, limite les URL de retour au site et à localhost → session Stripe Checkout (test) → redirection vers Stripe. Retour sur `checkout-success.html` (vide le panier).
 - **« AURA — Confirmation paiement Stripe »** (`Bsa9nENq2xyVBJfu`) : sur `checkout.session.completed`, deux branches indépendantes :
   - email de confirmation Gmail (nom du client échappé contre l'injection HTML) ;
   - enregistrement en base : relit la session chez Stripe, n'enregistre que si `payment_status = paid`, insert idempotent (un événement rejoué ne crée pas de doublon), alerte Gmail au propriétaire si l'enregistrement échoue.
@@ -36,6 +36,9 @@ admin.html ── après « Expédiée » (JWT admin) ──▶ n8n webhook aura
 - **`mes-commandes.html`** (acheteur) : ses commandes avec frise Payée → Expédiée → Livrée, articles et numéro de suivi. Une commande payée sans compte apparaît dès qu'on se connecte avec le même email (vérifié).
 - **`admin.html`** (back-office) : 4 indicateurs (chiffre d'affaires, commandes, à expédier, top produit) + tableau des commandes avec changement de statut. Passage à « Expédiée » → n8n envoie l'email « Votre commande est en route ».
 - Icône compte dans la barre de navigation de toutes les pages (`js/nav-account.js`).
+
+### Formulaire de contact
+`contact.html` + `js/contact.js` → Web3Forms (clé publique dans `js/config.js`) → email dans la boîte Gmail du propriétaire. Champ anti-spam `botcheck`. Pas de workflow n8n.
 
 ### Base de données (Neon, projet `aura`, id `misty-moon-24213768`, schéma `app`)
 - Migrations : `db/migrations/001_orders.sql`, puis `002_drop_demo.sql`.
