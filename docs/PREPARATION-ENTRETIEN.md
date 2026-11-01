@@ -46,6 +46,8 @@ Ce qu'il faut faire passer : **un vrai parcours complet**, du clic « Payer » j
 - **Pourquoi pas React :** le site est petit. Le JavaScript pur montre que je comprends ce que font les frameworks à ma place (manipuler le DOM, écouter les événements, appeler une API avec `fetch`).
 
 ### 3.2 Le paiement : Stripe + n8n
+*(Détail nœud par nœud : section 4.3.)*
+
 1. Sur `checkout.html`, le bouton « Payer » envoie le panier en **JSON** à un **webhook** n8n (`/webhook/aura-checkout`). Il n'envoie **que l'identifiant des produits et la quantité, jamais le prix**.
 2. Le workflow n8n **« Créer session Stripe Checkout »** vérifie le panier, lit le nom et le prix de chaque produit **dans la table `products` de la base**, refuse un produit inconnu, désactivé ou une quantité invalide, puis demande à Stripe une page de paiement et renvoie son adresse.
 3. Le navigateur est redirigé vers Stripe. On paie avec une carte de test (`4242 4242 4242 4242`).
@@ -57,6 +59,8 @@ Ce qu'il faut faire passer : **un vrai parcours complet**, du clic « Payer » j
 **Une seule source de vérité :** les produits sont dans la table `app.products`. La boutique les affiche depuis la base, et n8n y lit les prix. Si je change un prix dans la base, l'affichage et le paiement suivent ensemble. J'ai vérifié en passant Horizon à 291 € : Stripe a demandé 291 €. *Histoire à raconter :* au départ, la liste des produits était écrite en dur dans `script.js` (données fictives de la première version), et le prix était envoyé par le navigateur. En ajoutant le vrai paiement, j'ai repéré la faille, corrigé, puis déplacé le catalogue en base.
 
 ### 3.3 Après le paiement : workflow « Confirmation paiement »
+*(Détail nœud par nœud : section 4.4.)*
+
 Il démarre quand Stripe envoie l'événement `checkout.session.completed`. Deux branches indépendantes :
 - **Email de confirmation** au client, via Gmail. Le nom du client est **échappé** pour éviter l'injection de HTML dans l'email.
 - **Enregistrement en base :**
@@ -101,6 +105,8 @@ Règles écrites **dans la base** (fichier `db/migrations/001_orders.sql`) :
 - `admin.html` : 4 indicateurs (la vue `admin_kpis`) et le tableau des commandes avec changement de statut.
 
 ### 3.7 Workflow « Statut commande » (email « en route »)
+*(Détail nœud par nœud : section 4.5.)*
+
 Quand l'admin passe une commande à « Expédiée », `admin.html` appelle le webhook n8n `aura-order-status` avec son JWT.
 1. n8n **vérifie que l'appelant est admin** en demandant à la Data API (`rpc/admin_scope`) avec ce jeton. Sinon : réponse **401** (refusé).
 2. **Garde anti-doublon :** une seule requête SQL marque « email envoyé » *seulement si* la commande est expédiée *et* que l'email n'est pas déjà parti. Un double clic n'envoie donc qu'un seul email.
@@ -114,7 +120,155 @@ Quand l'admin passe une commande à « Expédiée », `admin.html` appelle le we
 
 ---
 
-## 4. La démo à faire en entretien (5 minutes)
+## 4. Les automatisations n8n en détail
+
+### 4.1 n8n en 2 minutes
+**n8n** est un outil d'automatisation : on construit des **workflows** en reliant des blocs (**nœuds**) dans une interface visuelle. Le mien est **auto-hébergé** sur un serveur (VPS), accessible en HTTPS sur `https://n8n.212.227.12.49.nip.io`. `nip.io` est un service DNS gratuit qui transforme une adresse IP en nom de domaine, ce qui permet d'avoir un certificat HTTPS (Let's Encrypt) sans acheter de domaine.
+
+Le vocabulaire à connaître :
+
+| Terme n8n | Ce que c'est |
+|---|---|
+| **Workflow** | Un scénario automatique : un déclencheur, puis une suite d'actions. |
+| **Trigger (déclencheur)** | Le premier nœud, qui lance le workflow : un **Webhook** (appel HTTP), un événement **Stripe**, une heure fixe… |
+| **Nœud** | Une étape : appel HTTP, requête SQL, envoi Gmail, condition **If**, code JavaScript… |
+| **Item** | Une donnée JSON qui passe d'un nœud au suivant. Chaque nœud reçoit les items du précédent et en produit de nouveaux. |
+| **Expression** `{{ }}` | Un petit bout de JavaScript dans un champ, pour utiliser une donnée : `{{ $json.email }}` (l'item courant) ou `{{ $('Valider Panier').first().json.items }}` (un nœud précédent). |
+| **Credential** | Un identifiant secret (clé Stripe, compte Gmail, connexion à la base) stocké **chiffré** dans n8n. Les nœuds l'utilisent sans jamais l'afficher. |
+| **Execution** | Une exécution du workflow. n8n garde l'historique : on voit les données entrées et sorties de **chaque** nœud. C'est l'outil n°1 pour dépanner. |
+| **Actif / inactif** | Un workflow doit être **actif** pour réagir aux vrais événements (URL de *production*). En mode édition, on utilise l'URL de *test*. |
+| **Sortie d'erreur** | Option d'un nœud (« On Error → Continue (using error output) ») : au lieu d'arrêter le workflow en cas d'échec, il envoie l'erreur vers une branche dédiée (alerte, réponse d'erreur…). |
+| **Respond to Webhook** | Le nœud qui choisit **quoi répondre** à l'appelant du webhook (contenu JSON + code HTTP 200, 401, 502…). |
+
+### 4.2 Les trois workflows d'AURA
+
+| Workflow | Déclencheur | Rôle | Export dans le projet |
+|---|---|---|---|
+| **Créer session Stripe Checkout** | Webhook `POST /webhook/aura-checkout` (appelé par `checkout.html`) | Transformer le panier en page de paiement Stripe, **avec les prix de la base** | `n8n/aura-creer-session-stripe.json` |
+| **Confirmation paiement Stripe** | Événement Stripe `checkout.session.completed` | Envoyer l'email de confirmation et **enregistrer la commande** en base | `n8n/aura-confirmation-paiement.json` |
+| **Statut commande** | Webhook `POST /webhook/aura-order-status` (appelé par `admin.html`) | Envoyer l'email « Votre commande est en route », **une seule fois** et **seulement pour un admin** | `n8n/aura-statut-commande.json` |
+
+Les fichiers `.json` sont des **exports** : on peut les réimporter dans un autre n8n (*Import from file*). Les credentials ne sont pas inclus, il faut les recréer.
+
+### 4.3 Workflow « Créer session Stripe Checkout »
+```
+Réception Panier ─▶ Valider Panier ─▶ Lire Prix (Neon) ─▶ Construire Requête Stripe ─▶ Créer Session Stripe ─▶ Répondre avec URL Paiement
+   (Webhook)          (Code)            (Postgres)            (Code)                     (HTTP Request)          (Respond to Webhook)
+```
+
+| Nœud | Ce qu'il fait |
+|---|---|
+| **Réception Panier** | Reçoit le JSON envoyé par la page : `{ items: [{ id: 2, quantity: 1 }], email, successUrl, cancelUrl }`. |
+| **Valider Panier** | Vérifie la forme : 1 à 20 articles, `id` entier, quantité de 1 à 10. **N'accepte comme adresses de retour que mon site ou localhost** (sinon il met celles du site). Valide l'email. Lève une erreur si le panier est invalide. |
+| **Lire Prix (Neon)** | Requête SQL : `select id, name, price from app.products where active and id in (…)`. Les identifiants sont passés en **paramètre** (`$1`), jamais collés dans le texte SQL : pas d'**injection SQL** possible. Option *Always Output Data* activée pour continuer même si aucun produit n'est trouvé. |
+| **Construire Requête Stripe** | Pour chaque article, prend **le nom et le prix de la base** et construit le corps de la requête Stripe (`line_items`, montants en centimes). Produit inconnu ou désactivé : erreur, pas de session. |
+| **Créer Session Stripe** | `POST https://api.stripe.com/v1/checkout/sessions` avec la **clé secrète Stripe** (credential). Stripe répond avec l'adresse de la page de paiement. |
+| **Répondre avec URL Paiement** | Renvoie `{ checkoutUrl, sessionId }` à la page, qui redirige le client vers Stripe. |
+
+**Ce qui le rend sûr :** le navigateur ne décide ni du prix, ni du nom, ni de l'adresse de retour. Testé : une requête « L'Ombre à 0,50 € » donne bien un paiement de 350 € chez Stripe.
+**En cas d'erreur** (panier invalide), aucune session n'est créée. Le webhook renvoie une réponse vide et la page affiche « Une erreur est survenue… ».
+
+### 4.4 Workflow « Confirmation paiement Stripe »
+```
+                          ┌─▶ Extraire Infos Commande ─▶ Envoyer Email Confirmation (Gmail)
+Paiement Reçu (Stripe) ───┤
+                          └─▶ Vérifier Session (Stripe) ─▶ Paiement confirmé ? ─oui─▶ Récupérer Articles (Stripe) ─▶ Enregistrer Commande (Neon)
+                                      │ erreur                                           │ erreur                       │ erreur
+                                      └──────────────▶ Alerte commande non enregistrée (Gmail, vers moi) ◀──────────────┘
+```
+
+| Nœud | Ce qu'il fait |
+|---|---|
+| **Paiement Reçu (Stripe)** | Déclencheur *Stripe Trigger* sur `checkout.session.completed`. À l'activation, n8n s'abonne lui-même à cet événement chez Stripe. |
+| **Extraire Infos Commande** | Nœud *Set* : garde seulement l'email, le nom, le montant (centimes → euros) et la devise. Le **nom est échappé** (`<` devient `&lt;`…) pour qu'un nom piégé ne puisse pas injecter de HTML dans l'email. |
+| **Envoyer Email Confirmation** | Gmail : email HTML aux couleurs d'AURA (« Merci pour votre commande… »). |
+| **Vérifier Session (Stripe)** | Relit la session **directement chez Stripe** avec la clé secrète, au lieu de croire le message reçu. |
+| **Paiement confirmé ?** | Condition *If* : continue seulement si `payment_status = paid`. |
+| **Récupérer Articles (Stripe)** | Demande à Stripe la liste des articles payés (nom, quantité, montant). |
+| **Enregistrer Commande (Neon)** | **Une seule requête SQL** qui insère la commande puis ses lignes. `on conflict (stripe_session_id) do nothing` : si Stripe renvoie le même événement, rien n'est créé en double (**idempotence**). Le numéro `AUR-xxxx` est généré par la base. |
+| **Alerte commande non enregistrée** | Si une des étapes de la branche base échoue (sortie d'erreur), m'envoie un email avec l'étape en échec, la session Stripe et l'erreur. Une commande payée n'est donc jamais perdue en silence. |
+
+**Pourquoi deux branches ?** Si la base est en panne, le client reçoit quand même sa confirmation, et moi une alerte. Une panne d'un côté ne bloque pas l'autre.
+**Limite connue :** la branche email part directement du message reçu, sans la revérification chez Stripe. Amélioration possible : n'envoyer l'email qu'après « Paiement confirmé ? ».
+
+### 4.5 Workflow « Statut commande »
+```
+Webhook ─▶ Vérifier admin (Neon) ─▶ Admin ? ─oui─▶ Valider orderId ─▶ orderId valide ? ─oui─▶ Marquer email envoyé (Neon) ─▶ Préparer email ─▶ Email à envoyer ? ─oui─▶ Envoyer Email Expédition ─▶ Répondre envoyé (200)
+              │ erreur             │ non                                  │ non                         │ erreur                                       │ non                           │ erreur
+              └────────────────────┴─▶ Répondre refusé (401)              └─────────────────────────────┴─────────▶ Répondre non envoyé (200) ◀─────────┘                               └─▶ Annuler marquage (Neon) ─▶ Répondre échec email (502)
+```
+
+| Nœud | Ce qu'il fait |
+|---|---|
+| **Commande expédiée (Webhook)** | Reçoit `{ orderId }` depuis `admin.html`, avec l'en-tête `Authorization: Bearer <JWT>`. N'accepte que les appels venant de mon site ou de localhost (**CORS**, option *Allowed Origins*). |
+| **Vérifier admin (Neon)** | Transmet le JWT à la Data API Neon (`rpc/admin_scope`). C'est **la base** qui dit si ce jeton appartient à un admin. n8n ne décode pas le jeton lui-même : pas de clé à gérer. |
+| **Admin ?** | Si la réponse n'est pas `all` : **401 refusé**. |
+| **Valider orderId** | Code : `orderId` doit être un entier positif. Tout le reste est rejeté. |
+| **Marquer email envoyé (Neon)** | La **garde atomique** : `update … set shipped_email_sent_at = now() where id = $1 and status = 'expediee' and shipped_email_sent_at is null`. Une seule requête peut réussir. Deux clics simultanés : un seul obtient la ligne, l'autre n'obtient rien. |
+| **Préparer email** | Code : construit l'email HTML (articles, total, numéro de suivi), en **échappant** toutes les valeurs. Si la garde n'a rien renvoyé : rien à envoyer. |
+| **Envoyer Email Expédition** | Gmail : « Votre commande AURA est en route ». |
+| **Annuler marquage (Neon)** | Si Gmail échoue : remet `shipped_email_sent_at` à vide (seulement si c'est toujours notre marque), pour pouvoir **réessayer**. C'est une **compensation**. |
+| **Répondre …** | `sent: true` (200), `sent: false` (200, rien à envoyer), **401** (pas admin), **502** (Gmail en échec). `admin.html` affiche le bon message selon la réponse. |
+
+### 4.6 Les bonnes pratiques à citer (et où elles sont)
+
+| Principe | Exemple dans AURA |
+|---|---|
+| **Ne jamais faire confiance au navigateur** | Prix lus en base (checkout), admin vérifié par la base (statut). |
+| **Revérifier à la source** | La confirmation relit la session chez Stripe avant d'enregistrer. |
+| **Idempotence** | `on conflict do nothing` sur `stripe_session_id`. |
+| **Garde atomique** | Un seul email « en route », même en cas de double clic. |
+| **Compensation** | « Annuler marquage » si l'email échoue. |
+| **Requêtes paramétrées** | `$1`, `$2` dans les nœuds Postgres : pas d'injection SQL. |
+| **Échappement HTML** | Noms et articles échappés dans les emails. |
+| **Secrets dans les credentials** | Aucune clé dans le code du site ni dans les exports. |
+| **Alerter plutôt que perdre** | Email d'alerte si une commande payée n'est pas enregistrée. |
+| **Réponses explicites** | Codes 200 / 401 / 502 : la page sait quoi afficher. |
+
+### 4.7 Montrer n8n pendant l'entretien
+1. Ouvrir la liste des workflows : les trois « AURA — … » sont **actifs**.
+2. Ouvrir « Statut commande » : suivre le chemin du webhook à la réponse, et montrer les branches 401 / 502.
+3. Faire une action sur le site (expédier une commande), puis ouvrir **Executions** : cliquer sur l'exécution et montrer les données qui sortent de chaque nœud.
+4. Montrer une **sortie d'erreur** (la branche « Alerte » du workflow Confirmation) en expliquant pourquoi elle existe.
+5. Montrer l'écran **Credentials** sans ouvrir les secrets : « les clés sont ici, chiffrées, jamais dans le code ».
+
+### 4.8 Dépanner (et le raconter)
+
+| Symptôme | Cause | Solution |
+|---|---|---|
+| Les emails ne partent plus, erreur `invalid_grant` | Jeton Gmail expiré. Mon application Google était en mode « Test » (jetons valables 7 jours). | Application publiée « En production », puis credential Gmail reconnecté une fois. |
+| Erreur `42703` (colonne inconnue) après un changement en base | La Data API Neon garde l'ancienne liste de colonnes en cache. | Ré-enregistrer les schémas exposés (`db_schemas`). |
+| Le paiement ne s'ouvre pas | Panier invalide (produit désactivé…) ou n8n injoignable. | **Executions** → ouvrir l'exécution en rouge → lire l'erreur du nœud. |
+| Une exécution a échoué pour une raison passagère | Réseau, service momentanément indisponible. | Bouton **Retry** sur l'exécution. |
+
+### 4.9 Questions sur n8n
+**Q : Pourquoi n8n plutôt que Zapier ou Make ?**
+R : n8n est **auto-hébergeable** : mes données et mes clés restent sur mon serveur, sans limite d'exécutions payante. Il permet aussi du vrai code (nœud *Code*) et du SQL quand le visuel ne suffit pas.
+
+**Q : Comment Stripe prévient-il n8n ?**
+R : Par un **webhook** : quand le paiement est terminé, Stripe envoie une requête HTTP à n8n. Le nœud *Stripe Trigger* s'abonne lui-même à l'événement quand j'active le workflow.
+
+**Q : Qu'est-ce qui empêche quelqu'un d'appeler tes webhooks ?**
+R : Rien n'empêche de les *appeler*, l'adresse est publique. Mais ils ne font **confiance à rien** de ce qu'ils reçoivent : le checkout prend ses prix en base, la confirmation revérifie le paiement chez Stripe avant d'enregistrer, et le statut exige un JWT d'admin vérifié par la base.
+
+**Q : Que se passe-t-il si Gmail tombe en panne pendant l'email « en route » ?**
+R : La sortie d'erreur du nœud Gmail déclenche « Annuler marquage » : la commande redevient « email non envoyé », et la page admin reçoit un **502**. On peut réessayer, et il n'y aura toujours qu'un seul email.
+
+**Q : Comment tu passes des données d'un nœud à un autre ?**
+R : Chaque nœud reçoit les items JSON du précédent (`$json`). Pour un nœud plus ancien, j'utilise une expression comme `$('Valider Panier').first().json`.
+
+**Q : Pourquoi certains nœuds sont du code et pas des nœuds visuels ?**
+R : Pour les validations précises (formats, limites) et la construction de l'email HTML, le code est plus court et plus lisible qu'une dizaine de nœuds *If* / *Set*. Le reste (Stripe, Gmail, Postgres, réponses) utilise les nœuds natifs.
+
+**Q : Comment tu testes un workflow ?**
+R : En mode édition avec l'URL de test et des données d'exemple, puis en vrai : des requêtes volontairement fausses (prix trafiqué, produit inconnu, appel sans être admin), en vérifiant le résultat dans **Executions**.
+
+**Q : Comment tu sauvegardes tes workflows ?**
+R : Ils sont exportés en JSON dans le dossier `n8n/` du projet, versionnés avec git. Les credentials ne sont pas dans les exports.
+
+---
+
+## 5. La démo à faire en entretien (5 minutes)
 
 1. **Boutique :** ajouter une paire au panier, recharger la page (le panier est toujours là grâce au localStorage).
 2. **Paiement :** payer avec la carte test `4242 4242 4242 4242`, n'importe quelle date future, n'importe quel CVC.
@@ -132,7 +286,7 @@ Quand l'admin passe une commande à « Expédiée », `admin.html` appelle le we
 
 ---
 
-## 5. Comment j'ai travaillé avec l'IA (Claude Code)
+## 6. Comment j'ai travaillé avec l'IA (Claude Code)
 
 À dire franchement : les recruteurs apprécient l'honnêteté, et savoir **piloter** une IA est une compétence recherchée.
 
@@ -150,7 +304,7 @@ Quand l'admin passe une commande à « Expédiée », `admin.html` appelle le we
 
 ---
 
-## 6. Les tests
+## 7. Les tests
 
 - `npm test` lance `node --test` sur deux fichiers (24 tests) :
   - `tests/orders-format.test.mjs` : mise en forme (prix en euros, dates, frise des statuts) ;
@@ -160,19 +314,20 @@ Quand l'admin passe une commande à « Expédiée », `admin.html` appelle le we
 
 ---
 
-## 7. Limites connues et améliorations possibles
+## 8. Limites connues et améliorations possibles
 
 Les citer toi-même montre du recul.
 - **Gestion du catalogue** : pour changer un prix ou ajouter un produit, je passe par la console Neon. Il n'y a pas encore d'écran dans le back-office pour ça.
 - **Paiements asynchrones** (Klarna, virement…) : l'événement `async_payment_succeeded` n'est pas géré.
-- **Gmail OAuth expire** régulièrement. En production, je passerais par un service d'emailing transactionnel (Brevo, Resend…).
+- **Email de confirmation** : il part directement du message Stripe reçu, sans la revérification faite pour l'enregistrement en base. À améliorer : l'envoyer après « Paiement confirmé ? ».
+- **Gmail OAuth** : le jeton expirait tous les 7 jours (application Google en mode « Test »). C'est corrigé en publiant l'application. En vraie production, je passerais quand même par un service d'emailing transactionnel (Brevo, Resend…).
 - **n8n sur un VPS avec une adresse `nip.io`** : pratique pour un projet, mais en vrai il faudrait un nom de domaine, des sauvegardes et de la supervision.
 - **Cookies tiers** : la connexion n'a pas été testée sur Safari ni en navigation privée.
 - Pas de framework ni d'étape de build : simple, mais moins adapté si le site grossit.
 
 ---
 
-## 8. Questions probables et réponses
+## 9. Questions probables et réponses
 
 **Q : Pourquoi un site statique et pas un back-end Node/PHP ?**
 R : Le site lui-même n'a besoin de rien calculer. Les parties qui demandent un serveur (secret Stripe, emails, écriture en base) sont dans n8n. C'est gratuit à héberger et simple à déployer.
@@ -224,7 +379,7 @@ R : Exemples réels : rendre la sécurité indépendante du navigateur (RLS + v�
 
 ---
 
-## 9. Glossaire
+## 10. Glossaire
 
 | Terme | En une phrase |
 |---|---|
@@ -250,7 +405,7 @@ R : Exemples réels : rendre la sécurité indépendante du navigateur (RLS + v�
 
 ---
 
-## 10. Où regarder dans le projet
+## 11. Où regarder dans le projet
 
 | Je veux montrer… | Fichier |
 |---|---|
