@@ -46,7 +46,7 @@
             {
               "id": "a2",
               "name": "customerName",
-              "value": "={{ String($json.data.object.customer_details?.name ?? \"Client\").replace(/[&<>\"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', \"'\": '&#39;' })[c]) }}",
+              "value": "={{ String($json.data.object.metadata?.customer_name || $json.data.object.customer_details?.name || \"Client\").replace(/[&<>\"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', \"'\": '&#39;' })[c]) }}",
               "type": "string"
             },
             {

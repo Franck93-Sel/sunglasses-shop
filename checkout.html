@@ -147,6 +147,9 @@
                             // Uniquement l'id et la quantité : le prix est fixé par n8n à partir de son catalogue.
                             items: cart.map(item => ({ id: item.id, quantity: 1 })),
                             email: document.getElementById('email').value,
+                            // Nom saisi ici : c'est lui qui apparaît dans l'email de confirmation
+                            // (sinon Stripe prend le nom du titulaire de la carte, parfois pré-rempli).
+                            name: `${document.getElementById('firstName').value} ${document.getElementById('lastName').value}`.trim(),
                             successUrl: window.location.origin + window.location.pathname.replace('checkout.html', 'checkout-success.html'),
                             cancelUrl: window.location.href
                         })
