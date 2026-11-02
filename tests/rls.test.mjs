@@ -38,14 +38,23 @@ async function ensureAccount(email, password) {
   }
   const [row] = await findUser(email);
   if (!row) throw new Error(`compte introuvable après inscription : ${email}`);
-  const proof = await signedInClient(email, password); // lève si le mot de passe ne correspond pas
-  if (proof.userId !== row.id) throw new Error(`compte ${email} : id de session inattendu, abandon`);
-  await sql`update neon_auth."user" set "emailVerified" = true where id::text = ${row.id}`;
-  // Nouvelle session APRÈS la vérification : la première a pu figer emailVerified = false
-  // dans son cache, et le JWT qui en sort serait refusé par la RLS (test instable).
-  const client = await signedInClient(email, password);
+  const client = await signedInClient(email, password); // lève si le mot de passe ne correspond pas
   if (client.userId !== row.id) throw new Error(`compte ${email} : id de session inattendu, abandon`);
+  await sql`update neon_auth."user" set "emailVerified" = true where id::text = ${row.id}`;
   return { id: row.id, client };
+}
+
+// Neon Data API : après quelques minutes sans requête, la toute première arrive parfois sans
+// identité (current_email() = null, mesuré 3 fois le 2026-11-02) ; la suivante est normale.
+// Même contournement que whenDataApiReady() dans js/neon-client.js : on attend que la base
+// reconnaisse le compte avant les vrais tests, sinon « buyer sees own order » échoue au hasard.
+async function waitForIdentity(client, email, attempts = 4) {
+  for (let i = 0; i < attempts; i += 1) {
+    const { data } = await client.schema(SCHEMA).rpc('current_email');
+    if (data === email) return;
+    await new Promise((r) => setTimeout(r, 300 * (i + 1)));
+  }
+  throw new Error(`Data API : ${email} toujours pas reconnu après ${attempts} essais`);
 }
 
 async function insertOrder({ email, total, status = 'payee', product = 'RLS test item' }) {
@@ -81,6 +90,10 @@ before(async () => {
      on conflict (user_id) do update set scope = excluded.scope`,
     [privateAdminId],
   );
+
+  await waitForIdentity(buyer, BUYER);
+  await waitForIdentity(stranger, STRANGER);
+  await waitForIdentity(privateAdmin, PRIVATE_ADMIN.trim().toLowerCase());
 
   ids.own = await insertOrder({ email: BUYER, total: 120 });
   ids.messy = await insertOrder({ email: '  RLS-Buyer@Aura-Demo.FR ', total: 80 });

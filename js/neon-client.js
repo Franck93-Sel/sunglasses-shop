@@ -88,10 +88,47 @@ export async function requireUser(redirectTo = 'compte.html') {
   return user;
 }
 
+// Contournement Neon Data API (mesuré le 2026-11-02) : après quelques minutes sans requête,
+// la toute première requête arrive parfois SANS identité (auth.user_id() vide côté base).
+// La RLS répond alors comme à un inconnu : liste vide ou admin_scope null, sans erreur.
+// La requête suivante est normale. On « réveille » donc la Data API avec un « qui suis-je ? »
+// (app.current_email) jusqu'à ce qu'elle reconnaisse le compte, avant les vraies requêtes.
+// Seulement pour un email vérifié : sinon current_email() vaut null normalement.
+let dataApiReady = null;
+
+export function whenDataApiReady(attempts = 4) {
+  dataApiReady ??= (async () => {
+    let user;
+    try {
+      const { data } = await neon.auth.getSession();
+      user = data && data.session && data.user;
+    } catch {
+      return false;
+    }
+    if (!user || !user.emailVerified || !user.email) return false;
+    const expected = user.email.trim().toLowerCase();
+    for (let i = 0; i < attempts; i += 1) {
+      try {
+        const { data, error } = await neon.schema('app').rpc('current_email');
+        if (!error && data === expected) return true;
+      } catch {
+        /* nouvel essai */
+      }
+      if (i < attempts - 1) await new Promise((resolve) => setTimeout(resolve, 300 * (i + 1)));
+    }
+    return false;
+  })().then((ready) => {
+    if (!ready) dataApiReady = null; // pas reconnu : on réessaiera au prochain appel
+    return ready;
+  });
+  return dataApiReady;
+}
+
 // Page d'accueil de l'espace connecté : back-office pour un admin, sinon commandes.
 // Une erreur (jeton pas encore pris en compte juste après la connexion, base qui se réveille)
 // ne vaut pas « pas admin » : on réessaie avant de conclure.
 export async function isAdmin(attempts = 3) {
+  await whenDataApiReady();
   for (let i = 0; i < attempts; i += 1) {
     try {
       const { data, error } = await neon.schema('app').rpc('admin_scope');

@@ -1,4 +1,4 @@
-import { neon, requireUser, signOut, isAdmin } from './neon-client.js';
+import { neon, requireUser, signOut, isAdmin, whenDataApiReady } from './neon-client.js';
 import { STATUS_LABELS, timeline, formatPrice, formatDate } from './orders-format.js';
 
 const $ = (id) => document.getElementById(id);
@@ -83,6 +83,7 @@ async function init() {
   const list = $('ordersList');
   const error = $('ordersError');
   try {
+    await whenDataApiReady(); // sinon « 0 commande » possible après une pause (voir neon-client.js)
     const { data, error: err } = await neon
       .schema('app')
       .from('orders')

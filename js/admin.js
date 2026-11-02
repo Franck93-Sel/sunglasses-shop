@@ -1,4 +1,4 @@
-import { neon, requireUser, signOut, getAccessToken } from './neon-client.js';
+import { neon, requireUser, signOut, getAccessToken, whenDataApiReady } from './neon-client.js';
 import { N8N_ORDER_STATUS_WEBHOOK } from './config.js';
 import { STATUS_LABELS, formatPrice, formatDate } from './orders-format.js';
 
@@ -151,6 +151,7 @@ async function init() {
       window.location.href = 'compte.html';
     });
 
+    await whenDataApiReady(); // sinon un admin peut être pris pour un acheteur (voir neon-client.js)
     const { data: scope, error: scopeErr } = await neon.schema('app').rpc('admin_scope');
     if (scopeErr) throw scopeErr;
     if (!scope) {
