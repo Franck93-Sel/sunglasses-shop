@@ -104,34 +104,37 @@
         document.addEventListener('DOMContentLoaded', () => {
             const checkoutItems = document.getElementById('checkoutItems');
             const checkoutTotal = document.getElementById('checkoutTotal');
-            let total = 0;
-            
+            const N8N_CHECKOUT_WEBHOOK = 'https://n8n.212.227.12.49.nip.io/webhook/aura-checkout';
+            const payBtn = document.getElementById('payBtn');
+            const paymentError = document.getElementById('paymentError');
+            const EMPTY_MESSAGE = 'Votre panier est vide. Ajoutez des articles avant de payer.';
+
             if (cart.length === 0) {
-                checkoutItems.innerHTML = '<p style="color: var(--color-text-secondary);">Votre panier est vide.</p>';
+                checkoutItems.innerHTML = '<p style="color: var(--color-text-secondary);">Votre panier est vide. <a href="shop.html" style="color: var(--color-accent);">Voir la collection</a></p>';
+                paymentError.textContent = EMPTY_MESSAGE;
+                paymentError.style.display = 'block';
+                payBtn.disabled = true;
             } else {
                 cart.forEach(item => {
-                    total += item.price;
+                    const name = escapeHtml(item.name);
                     checkoutItems.innerHTML += `
                         <div class="summary-item">
                             <div class="summary-item-info">
-                                <img src="${item.image}" alt="${item.name}" class="summary-item-img">
-                                <span>${item.name}</span>
+                                <img src="${escapeHtml(item.image)}" alt="${name}" class="summary-item-img">
+                                <span>${name} × ${item.quantity}</span>
                             </div>
-                            <span>${item.price} €</span>
+                            <span>${item.price * item.quantity} €</span>
                         </div>
                     `;
                 });
             }
-            checkoutTotal.textContent = `${total} €`;
-
-            const N8N_CHECKOUT_WEBHOOK = 'https://n8n.212.227.12.49.nip.io/webhook/aura-checkout';
-            const payBtn = document.getElementById('payBtn');
-            const paymentError = document.getElementById('paymentError');
+            checkoutTotal.textContent = `${cartTotal()} €`;
 
             document.getElementById('paymentForm').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 if (cart.length === 0) {
-                    alert("Votre panier est vide. Veuillez ajouter des articles avant de payer.");
+                    paymentError.textContent = EMPTY_MESSAGE;
+                    paymentError.style.display = 'block';
                     return;
                 }
 
@@ -145,7 +148,7 @@
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             // Uniquement l'id et la quantité : le prix est fixé par n8n à partir de son catalogue.
-                            items: cart.map(item => ({ id: item.id, quantity: 1 })),
+                            items: cart.map(item => ({ id: item.id, quantity: item.quantity })),
                             email: document.getElementById('email').value,
                             // Nom saisi ici : c'est lui qui apparaît dans l'email de confirmation
                             // (sinon Stripe prend le nom du titulaire de la carte, parfois pré-rempli).

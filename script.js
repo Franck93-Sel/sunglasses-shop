@@ -26,7 +26,31 @@ function escapeHtml(text) {
 // =========================================================================
 // State: Cart
 // =========================================================================
-let cart = JSON.parse(localStorage.getItem('auraCart') || '[]');
+// Une ligne par produit : { id, name, price, image, quantity }. Même limite que le workflow
+// n8n « Créer session Stripe » (Valider Panier), qui refuse toute quantité au-delà.
+const MAX_QUANTITY = 10;
+
+// L'ancien panier stockait un doublon par clic : on regroupe par produit au chargement.
+function loadCart() {
+    let saved;
+    try { saved = JSON.parse(localStorage.getItem('auraCart') || '[]'); } catch { saved = []; }
+    if (!Array.isArray(saved)) saved = [];
+    const lines = [];
+    for (const item of saved) {
+        if (!item || item.id == null) continue;
+        const quantity = Number.isInteger(item.quantity) ? item.quantity : 1;
+        const line = lines.find(l => l.id === item.id);
+        if (line) line.quantity += quantity;
+        else lines.push({ id: item.id, name: item.name, price: Number(item.price), image: item.image, quantity });
+    }
+    lines.forEach(l => { l.quantity = Math.min(Math.max(l.quantity, 1), MAX_QUANTITY); });
+    return lines;
+}
+
+let cart = loadCart();
+
+const cartItemCount = () => cart.reduce((n, item) => n + item.quantity, 0);
+const cartTotal = () => cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
 function saveCart() {
     localStorage.setItem('auraCart', JSON.stringify(cart));
@@ -62,6 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     setupEventListeners();
     setupCookieBanner();
+    updateCartUI(); // compteur et bouton de paiement à jour dès le chargement
 });
 
 // =========================================================================
@@ -206,10 +231,17 @@ window.addToCart = function(productId) {
     const product = products.find(p => p.id === productId);
     if (!product) return;
 
-    cart.push(product);
-    saveCart();
-    updateCartUI();
-    
+    const line = cart.find(item => item.id === productId);
+    if (line && line.quantity >= MAX_QUANTITY) {
+        updateCartUI();
+        showCartNotice(`Maximum ${MAX_QUANTITY} exemplaires par article.`);
+    } else {
+        if (line) line.quantity += 1;
+        else cart.push({ id: product.id, name: product.name, price: product.price, image: product.image, quantity: 1 });
+        saveCart();
+        updateCartUI();
+    }
+
     // Open cart to show user they added it (if not already opened)
     if (!cartOverlay.classList.contains('active')) {
         toggleCart();
@@ -222,49 +254,87 @@ window.removeFromCart = function(index) {
     updateCartUI();
 }
 
+window.changeCartQuantity = function(index, delta) {
+    const line = cart[index];
+    if (!line) return;
+    line.quantity = Math.min(Math.max(line.quantity + delta, 1), MAX_QUANTITY);
+    saveCart();
+    updateCartUI();
+}
+
+// Message dans le tiroir (pas de window.alert : il bloque la page).
+function showCartNotice(message) {
+    const footer = document.querySelector('.cart-footer');
+    if (!footer) return;
+    let notice = footer.querySelector('.cart-notice');
+    if (!notice) {
+        notice = document.createElement('p');
+        notice.className = 'cart-notice';
+        notice.setAttribute('role', 'alert');
+        footer.insertBefore(notice, footer.querySelector('.btn-primary'));
+    }
+    notice.textContent = message;
+    notice.hidden = false;
+}
+
+function hideCartNotice() {
+    const notice = document.querySelector('.cart-footer .cart-notice');
+    if (notice) notice.hidden = true;
+}
+
 function updateCartUI() {
+    hideCartNotice();
+
     // Update count indicator
-    if (cartCount) cartCount.textContent = cart.length;
-    
+    if (cartCount) cartCount.textContent = cartItemCount();
+
+    // Bouton de paiement : refusé tant que le panier est vide.
+    const checkoutBtn = document.querySelector('.cart-footer .btn-primary');
+    if (checkoutBtn) {
+        checkoutBtn.setAttribute('aria-disabled', String(cart.length === 0));
+        checkoutBtn.onclick = () => {
+            if (cart.length === 0) {
+                showCartNotice('Votre panier est vide.');
+                return;
+            }
+            window.location.href = 'checkout.html';
+        };
+    }
+
     // Render items in drawer
     if (!cartItemsContainer || !cartTotalPrice) return;
-    
+
     cartItemsContainer.innerHTML = '';
-    
+
     if (cart.length === 0) {
         cartItemsContainer.innerHTML = '<p class="empty-cart">Votre panier est vide.</p>';
         cartTotalPrice.textContent = '0 €';
         return;
     }
-    
-    let total = 0;
-    
+
     cart.forEach((item, index) => {
-        total += item.price;
-        
+        const name = escapeHtml(item.name);
         const itemEl = document.createElement('div');
         itemEl.className = 'cart-item';
         itemEl.innerHTML = `
-            <img src="${item.image}" alt="${item.name}" class="cart-item-img">
+            <img src="${escapeHtml(item.image)}" alt="${name}" class="cart-item-img">
             <div class="cart-item-info">
-                <h4 class="cart-item-name">${item.name}</h4>
+                <h4 class="cart-item-name">${name}</h4>
                 <p class="cart-item-price">${item.price} €</p>
+                <div class="cart-qty" role="group" aria-label="Quantité de ${name}">
+                    <button type="button" class="cart-qty-btn" onclick="changeCartQuantity(${index}, -1)"
+                        aria-label="Retirer un exemplaire" ${item.quantity <= 1 ? 'disabled' : ''}>−</button>
+                    <span class="cart-qty-value" aria-live="polite">${item.quantity}</span>
+                    <button type="button" class="cart-qty-btn" onclick="changeCartQuantity(${index}, 1)"
+                        aria-label="Ajouter un exemplaire" ${item.quantity >= MAX_QUANTITY ? 'disabled' : ''}>+</button>
+                </div>
                 <button class="remove-item" onclick="removeFromCart(${index})">Supprimer</button>
             </div>
         `;
         cartItemsContainer.appendChild(itemEl);
     });
-    
-// Update total price display
-    cartTotalPrice.textContent = `${total} €`;
-    
-    // Make sure the checkout button links to checkout.html
-    const checkoutBtn = document.querySelector('.cart-footer .btn-primary');
-    if (checkoutBtn) {
-        checkoutBtn.onclick = () => {
-            window.location.href = 'checkout.html';
-        };
-    }
+
+    cartTotalPrice.textContent = `${cartTotal()} €`;
 }
 
 // =========================================================================
