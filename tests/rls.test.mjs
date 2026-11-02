@@ -38,9 +38,13 @@ async function ensureAccount(email, password) {
   }
   const [row] = await findUser(email);
   if (!row) throw new Error(`compte introuvable après inscription : ${email}`);
-  const client = await signedInClient(email, password); // lève si le mot de passe ne correspond pas
-  if (client.userId !== row.id) throw new Error(`compte ${email} : id de session inattendu, abandon`);
+  const proof = await signedInClient(email, password); // lève si le mot de passe ne correspond pas
+  if (proof.userId !== row.id) throw new Error(`compte ${email} : id de session inattendu, abandon`);
   await sql`update neon_auth."user" set "emailVerified" = true where id::text = ${row.id}`;
+  // Nouvelle session APRÈS la vérification : la première a pu figer emailVerified = false
+  // dans son cache, et le JWT qui en sort serait refusé par la RLS (test instable).
+  const client = await signedInClient(email, password);
+  if (client.userId !== row.id) throw new Error(`compte ${email} : id de session inattendu, abandon`);
   return { id: row.id, client };
 }
 
